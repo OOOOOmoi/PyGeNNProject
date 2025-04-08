@@ -7,8 +7,11 @@ from scipy.stats import norm
 from time import perf_counter
 from itertools import product
 import matplotlib.pyplot as plt
-file_synapse_number = "/home/yangjinhao/GeNN/userproject/SingleColumn/SynapsesNumber.txt"
-file_weight = "/home/yangjinhao/GeNN/userproject/SingleColumn/SynapsesWeight.txt"
+import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+file_synapse_number = os.path.join(current_dir, "SynapsesNumber.txt")
+file_weight = os.path.join(current_dir, "SynapsesWeight.txt")
 
 # ----------------------------------------------------------------------------
 # Parameters
@@ -92,7 +95,7 @@ def get_syn_weight():
         print(f"Error: File '{file_weight}' not found.")
     return syn_weight
 
-# Population names
+# Population Type
 TYPE_NAMES = ["E", "I"]
 
 # Simulation timestep [ms]
@@ -115,7 +118,7 @@ def get_parser():
     parser.add_argument("--connectivity-scale", type=float, default=1.0, help="Scaling factor to apply to number of neurons")
     parser.add_argument("--kernel-profiling", action="store_true", help="Output kernel profiling data")
     parser.add_argument("--save-data", action="store_true", help="Output kernel profiling data")
-    parser.add_argument("--buffer-size", type=int, default=10, help="Size of recording buffer")
+    parser.add_argument("--buffer-size", type=int, default=100, help="Size of recording buffer")
     return parser
 
 # ----------------------------------------------------------------------------
@@ -133,7 +136,7 @@ if __name__ == "__main__":
     model.timing_enabled = args.kernel_profiling
     model.default_var_location = VarLocation.DEVICE
     model.default_sparse_connectivity_location = VarLocation.DEVICE
-    
+
     lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": 2.0}
     exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 0.5})
 
@@ -163,14 +166,9 @@ if __name__ == "__main__":
         neuron_pop.spike_recording_enabled = True
 
         print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (pop, pop_size, input[pop]/1000.0))
-
-        # Add number of neurons to total
         total_neurons += pop_size
-
-        # Add neuron population to dictionary
         neuron_populations[pop] = neuron_pop
 
-    # Loop through target populations and layers
     print("Creating synapse populations:")
     synWeight=get_syn_weight()
     synNum=get_syn_num()
@@ -178,10 +176,15 @@ if __name__ == "__main__":
     for tar_pop, src_pop in product(popName, popName):
 
         # Determine mean weight
+        # Specialised weights
         # mean_weight = synWeight[tar_pop][src_pop]['wAve']
         # weight_sd = synWeight[tar_pop][src_pop]['wSd']
+
+        # Identical presynaptic neuron types have identical weight distributions
         # mean_weight=MEAN_W
         # weight_sd = W_SD
+
+        # Weight set to 0
         mean_weight = 0
         weight_sd = 0
 
@@ -201,15 +204,11 @@ if __name__ == "__main__":
 
             # Build parameters for fixed number total connector
             connect_params = {"num": num_connections}
-
             # Build distribution for delay parameters
             d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
-
             total_synapses += num_connections
-
             # Build unique synapse name
             synapse_name = tar_pop + "2" + src_pop
-
             matrix_type = "SPARSE"
 
             # Excitatory
@@ -267,79 +266,68 @@ if __name__ == "__main__":
     print("Simulating")
 
     # Loop through timesteps
-sim_start_time = perf_counter()
+    sim_start_time = perf_counter()
 
-# 创建一个字典，用于存储每个神经元群的所有时间块数据
-spike_data = {n: [] for n in neuron_populations.keys()}
+    spike_data = {n: [] for n in neuron_populations.keys()}
 
-while model.t < duration:
-    # Advance simulation
-    print(model.timestep)
-    model.step_time()
+    while model.t < duration:
+        # Advance simulation
+        print(model.timestep)
+        model.step_time()
 
-    # Indicate every 10%
-    if not model.timestep % args.buffer_size:
-        model.pull_recording_buffers_from_device()
-        for n, pop in neuron_populations.items():
-            # 获取当前时间块的记录数据
-            spike_times, spike_ids = pop.spike_recording_data[0]
-            # 将当前时间块的数据追加到对应的列表中
-            spike_data[n].append(np.column_stack((spike_times, spike_ids)))
+        # Indicate every 10%
+        if not model.timestep % args.buffer_size:
+            model.pull_recording_buffers_from_device()
+            for n, pop in neuron_populations.items():
+                spike_times, spike_ids = pop.spike_recording_data[0]
+                spike_data[n].append(np.column_stack((spike_times, spike_ids)))
 
-    if (model.timestep % ten_percent_timestep) == 0:
-        print("%u%%" % (model.timestep / 100))
+        if (model.timestep % ten_percent_timestep) == 0:
+            print("%u%%" % (model.timestep / 100))
 
-sim_end_time = perf_counter()
+    sim_end_time = perf_counter()
 
-# 将所有时间块的数据拼接起来并保存到文件
-if args.save_data:
-    for n, data_chunks in spike_data.items():
-        # 拼接所有时间块的数据
-        all_data = np.vstack(data_chunks)
-        # 保存到文件
-        np.savetxt(f"output/{n}_spikes.csv", all_data, delimiter=",", fmt=("%f", "%d"), header="Times [ms], Neuron ID")
+    # Merge data
+    if args.save_data:
+        for n, data_chunks in spike_data.items():
+            all_data = np.vstack(data_chunks)
+            np.savetxt(f"output/{n}_spikes.csv", all_data, delimiter=",", fmt=("%f", "%d"), header="Times [ms], Neuron ID")
 
 
-print("Timing:")
-print("\tSimulation:%f" % ((sim_end_time - sim_start_time) * 1000.0))
+    print("Timing:")
+    print("\tSimulation:%f" % ((sim_end_time - sim_start_time) * 1000.0))
 
-print("\tInit:%f" % (1000.0 * model.init_time))
-print("\tSparse init:%f" % (1000.0 * model.init_sparse_time))
-print("\tNeuron simulation:%f" % (1000.0 * model.neuron_update_time))
-print("\tSynapse simulation:%f" % (1000.0 * model.presynaptic_update_time))
+    print("\tInit:%f" % (1000.0 * model.init_time))
+    print("\tSparse init:%f" % (1000.0 * model.init_sparse_time))
+    print("\tNeuron simulation:%f" % (1000.0 * model.neuron_update_time))
+    print("\tSynapse simulation:%f" % (1000.0 * model.presynaptic_update_time))
 
-# # Create plot
-figure, axes = plt.subplots(1, 2)
+    # # Create plot
+    figure, axes = plt.subplots(1, 2)
 
-# **YUCK** re-order neuron populations for plotting
-ordered_neuron_populations = list(reversed(list(neuron_populations.values())))
+    # **YUCK** re-order neuron populations for plotting
+    ordered_neuron_populations = list(reversed(list(neuron_populations.values())))
 
-start_id = 0
-bar_y = 0.0
-for pop in ordered_neuron_populations:
-    # 获取该神经元群的所有时间块数据并拼接
-    all_spike_data = np.vstack(spike_data[pop.name])  # 从 spike_data 中获取完整数据
-    spike_times, spike_ids = all_spike_data[:, 0], all_spike_data[:, 1]
+    start_id = 0
+    bar_y = 0.0
+    for pop in ordered_neuron_populations:
+        all_spike_data = np.vstack(spike_data[pop.name])
+        spike_times, spike_ids = all_spike_data[:, 0], all_spike_data[:, 1]
 
-    # 绘制脉冲图
-    actor = axes[0].scatter(spike_times, spike_ids + start_id, s=2, edgecolors="none")
+        actor = axes[0].scatter(spike_times, spike_ids + start_id, s=2, edgecolors="none")
 
-    # 绘制条形图，显示平均发放率
-    axes[1].barh(bar_y, len(spike_times) / (float(pop.num_neurons) * duration / 1000.0),
-                 align="center", color=actor.get_facecolor(), ecolor="black")
+        axes[1].barh(bar_y, len(spike_times) / (float(pop.num_neurons) * duration / 1000.0),
+                    align="center", color=actor.get_facecolor(), ecolor="black")
 
-    # 更新偏移量
-    start_id += pop.num_neurons
+        start_id += pop.num_neurons
 
-    # 更新条形图位置
-    bar_y += 1.0
+        bar_y += 1.0
 
-axes[0].set_xlabel("Time [ms]")
-axes[0].set_ylabel("Neuron number")
+    axes[0].set_xlabel("Time [ms]")
+    axes[0].set_ylabel("Neuron number")
 
-axes[1].set_xlabel("Mean firing rate [Hz]")
-axes[1].set_yticks(np.arange(0.0, len(neuron_populations), 1.0))
-axes[1].set_yticklabels([n.name for n in ordered_neuron_populations])
+    axes[1].set_xlabel("Mean firing rate [Hz]")
+    axes[1].set_yticks(np.arange(0.0, len(neuron_populations), 1.0))
+    axes[1].set_yticklabels([n.name for n in ordered_neuron_populations])
 
-# 保存绘图
-plt.savefig("spikes.jpg")
+    plt.savefig("raster_plot.jpg")

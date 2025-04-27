@@ -177,20 +177,21 @@ if __name__ == "__main__":
 
         # Determine mean weight
         # Specialised weights
-        # mean_weight = synWeight[tar_pop][src_pop]['wAve']
-        # weight_sd = synWeight[tar_pop][src_pop]['wSd']
+        mean_weight = synWeight[tar_pop][src_pop]['wAve']
+        weight_sd = synWeight[tar_pop][src_pop]['wSd']
+        G = 1
 
         # Identical presynaptic neuron types have identical weight distributions
         # mean_weight=MEAN_W
         # weight_sd = W_SD
 
         # Weight set to 0
-        mean_weight = 0
-        weight_sd = 0
+        # mean_weight = 0
+        # weight_sd = 0
 
         # Calculate number of connections
         num_connections = synNum[tar_pop][src_pop]*args.connectivity_scale
-        if src_pop.find("E") == 1:
+        if src_pop.startswith("E"):
             meanDelay= MEAN_DELAY["E"]
             delay_sd= DELAY_SD["E"]
             max_d= max_delay["E"]
@@ -212,7 +213,7 @@ if __name__ == "__main__":
             matrix_type = "SPARSE"
 
             # Excitatory
-            if src_pop.find("E") == 1:
+            if src_pop.startswith("E"):
                 # Build distribution for weight parameters
                 # **HACK** np.float32 doesn't seem to automatically cast
                 w_dist = {"mean": mean_weight, "sd": weight_sd, "min": 0.0, "max": float(np.finfo(np.float32).max)}
@@ -272,7 +273,7 @@ if __name__ == "__main__":
 
     while model.t < duration:
         # Advance simulation
-        print(model.timestep)
+        # print(model.timestep)
         model.step_time()
 
         # Indicate every 10%
@@ -303,7 +304,7 @@ if __name__ == "__main__":
     print("\tSynapse simulation:%f" % (1000.0 * model.presynaptic_update_time))
 
     # # Create plot
-    figure, axes = plt.subplots(1, 2)
+    figure, axes = plt.subplots(2, 1)
 
     # **YUCK** re-order neuron populations for plotting
     ordered_neuron_populations = list(reversed(list(neuron_populations.values())))

@@ -1,1 +1,1 @@
-python SingleColumn.py --neuron-scale 0.1 --connectivity-scale 0.01
+python SingleColumn.py --neuron-scale 1 --connectivity-scale 1

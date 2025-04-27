@@ -49,8 +49,9 @@ model.add_synapse_population("IE", "SPARSE",
     init_weight_update("StaticPulseConstantWeight", inh_synapse_init),
     init_postsynaptic("ExpCurr", inh_post_syn_params),
     init_sparse_connectivity("FixedProbability", fixed_prob))
-
-model.build()
+model_rebuild=False
+if model_rebuild:
+    model.build()
 model.load(num_recording_timesteps=1000)
 
 while model.timestep < 1000:

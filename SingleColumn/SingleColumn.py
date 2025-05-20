@@ -1,6 +1,7 @@
 import numpy as np
 
 from argparse import ArgumentParser
+import pygenn
 from pygenn import (GeNNModel, VarLocation, init_postsynaptic,
                     init_sparse_connectivity, init_weight_update, init_var)
 from scipy.stats import norm
@@ -8,7 +9,7 @@ from time import perf_counter
 from itertools import product
 import matplotlib.pyplot as plt
 import os
-
+import json
 current_dir = os.path.dirname(os.path.abspath(__file__))
 file_synapse_number = os.path.join(current_dir, "SynapsesNumber.txt")
 file_weight = os.path.join(current_dir, "SynapsesWeight.txt")
@@ -119,6 +120,7 @@ def get_parser():
     parser.add_argument("--kernel-profiling", action="store_true", help="Output kernel profiling data")
     parser.add_argument("--save-data", action="store_true", help="Output kernel profiling data")
     parser.add_argument("--buffer-size", type=int, default=100, help="Size of recording buffer")
+    parser.add_argument("--poisson-input", type=bool, default=True, help="Poisson input")
     return parser
 
 # ----------------------------------------------------------------------------
@@ -136,7 +138,14 @@ if __name__ == "__main__":
     model.timing_enabled = args.kernel_profiling
     model.default_var_location = VarLocation.DEVICE
     model.default_sparse_connectivity_location = VarLocation.DEVICE
-
+    poisson_input = args.poisson_input
+    # poisson_input = False
+    with open("/home/yangjinhao/PyGenn/custom_Data_Model_3396.json",'r') as f:
+        ParamOfAll=json.load(f)
+    synWeight=ParamOfAll["synapse_weights_mean"]['V1']
+    with open("/home/yangjinhao/PyGenn/indegrees_full.json",'r') as f:
+        K_all=json.load(f)
+    K=K_all['V1']
     lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": 2.0}
     exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 0.5})
 
@@ -154,18 +163,43 @@ if __name__ == "__main__":
     print("Creating neuron populations:")
     total_neurons = 0
     neuron_populations = {}
+    trigger_pulse_model = pygenn.create_current_source_model(
+        "trigger_pulse",
+        params=["input_time","output_time","magnitude"],  # 参数：噪声强度
+        injection_code=
+        """
+        if (t >= input_time && t < output_time) {
+            injectCurrent(magnitude);
+        }
+        """
+    )
+    poisson_init = {"current": 0.0}
     for pop in popName:
 
         lif_params = {"C": 0.5, "TauM": 20.0, "Vrest": -70.0, "Vreset": -60.0, "Vthresh" : -50.0,
-                    "Ioffset": input[pop]/1000.0, "TauRefrac": 2.0}
-
+                    "Ioffset": 0.0, "TauRefrac": 2.0}
         pop_size = popNum[pop]*args.neuron_scale
+        if not poisson_input:
+            lif_params["Ioffset"] = input[pop]/1000.0
+            print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (pop, pop_size, input[pop]/1000.0))
+        
         neuron_pop = model.add_neuron_population(pop, pop_size, "LIF", lif_params, lif_init)
-
+        if pop == 'E4':
+            model.add_current_source(pop + '_pulse',
+                trigger_pulse_model, neuron_pop,
+                {   "input_time":500,
+                    "output_time":1000,
+                    "magnitude": 0.0},
+            )
+        if poisson_input:
+            ext_weight = synWeight[pop]['external']['external'] / 1000.0
+            rate = 10* K[pop]['external']['external']
+            poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
+            model.add_current_source(pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
+            print("\tPopulation %s: num neurons:%u, Poisson rate:%f" % (pop, pop_size, rate))
         # Enable spike recording
         neuron_pop.spike_recording_enabled = True
 
-        print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (pop, pop_size, input[pop]/1000.0))
         total_neurons += pop_size
         neuron_populations[pop] = neuron_pop
 
@@ -181,14 +215,6 @@ if __name__ == "__main__":
         weight_sd = synWeight[tar_pop][src_pop]['wSd']
         G = 1
 
-        # Identical presynaptic neuron types have identical weight distributions
-        # mean_weight=MEAN_W
-        # weight_sd = W_SD
-
-        # Weight set to 0
-        # mean_weight = 0
-        # weight_sd = 0
-
         # Calculate number of connections
         num_connections = synNum[tar_pop][src_pop]*args.connectivity_scale
         if src_pop.startswith("E"):
@@ -200,8 +226,8 @@ if __name__ == "__main__":
             delay_sd= DELAY_SD["I"]
             max_d= max_delay["I"]
         if num_connections > 0:
-            print("\tConnection '%s' to '%s': numConnections=%u, meanWeight=%f, weightSD=%f, meanDelay=%f, delaySD=%f"
-                % (src_pop, tar_pop, num_connections, mean_weight, weight_sd, meanDelay, delay_sd))
+            # print("\tConnection '%s' to '%s': numConnections=%u, meanWeight=%f, weightSD=%f, meanDelay=%f, delaySD=%f"
+            #     % (src_pop, tar_pop, num_connections, mean_weight, weight_sd, meanDelay, delay_sd))
 
             # Build parameters for fixed number total connector
             connect_params = {"num": num_connections}
@@ -302,33 +328,3 @@ if __name__ == "__main__":
     print("\tSparse init:%f" % (1000.0 * model.init_sparse_time))
     print("\tNeuron simulation:%f" % (1000.0 * model.neuron_update_time))
     print("\tSynapse simulation:%f" % (1000.0 * model.presynaptic_update_time))
-
-    # # Create plot
-    figure, axes = plt.subplots(2, 1)
-
-    # **YUCK** re-order neuron populations for plotting
-    ordered_neuron_populations = list(reversed(list(neuron_populations.values())))
-
-    start_id = 0
-    bar_y = 0.0
-    for pop in ordered_neuron_populations:
-        all_spike_data = np.vstack(spike_data[pop.name])
-        spike_times, spike_ids = all_spike_data[:, 0], all_spike_data[:, 1]
-
-        actor = axes[0].scatter(spike_times, spike_ids + start_id, s=2, edgecolors="none")
-
-        axes[1].barh(bar_y, len(spike_times) / (float(pop.num_neurons) * duration / 1000.0),
-                    align="center", color=actor.get_facecolor(), ecolor="black")
-
-        start_id += pop.num_neurons
-
-        bar_y += 1.0
-
-    axes[0].set_xlabel("Time [ms]")
-    axes[0].set_ylabel("Neuron number")
-
-    axes[1].set_xlabel("Mean firing rate [Hz]")
-    axes[1].set_yticks(np.arange(0.0, len(neuron_populations), 1.0))
-    axes[1].set_yticklabels([n.name for n in ordered_neuron_populations])
-
-    plt.savefig("raster_plot.jpg")

@@ -1,1 +1,1 @@
-python SingleColumn.py --neuron-scale 1 --connectivity-scale 1
+python SingleColumn.py --neuron-scale 1 --connectivity-scale 1 --save-data --kernel-profiling

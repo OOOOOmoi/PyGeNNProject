@@ -44,18 +44,18 @@ popNum = {
     }
 input = {
     "H1": 501.0,
-    "V23": 501.0 - 10.0,
+    "V23": 501.0 + 15.0,
     "S23": 501.0,
     "E23": 501.0 + 50.0,
-    "P23": 501.0,
-    "V4": 501.0 - 50.0,
+    "P23": 501.0 + 30.0,
+    "V4": 501.0 - 10.0,
     "S4": 501.0,
     "E4": 501.0 + 50.0,
-    "P4": 501.0 + 10.0,
-    "V5": 501.0 - 10.0,
+    "P4": 501.0 - 10.0,
+    "V5": 501.0 + 10.0,
     "S5": 501.0,
-    "E5": 501.0 + 10.0,
-    "P5": 501.0,
+    "E5": 501.0 + 30.0,
+    "P5": 501.0 + 30.0,
     "V6": 501.0 - 10.0,
     "S6": 501.0,
     "E6": 501.0 + 50.0,
@@ -315,13 +315,13 @@ if __name__ == "__main__":
 
         if (model.timestep % ten_percent_timestep) == 0:
             print("%u%%" % (model.timestep / 100))
-        synapse_populations['E6']['E6'].out_post.pull_from_device()
-        out_post_array = synapse_populations['E6']['E6'].out_post.view[:,:20]  # 1D float array
+        # synapse_populations['E6']['E6'].out_post.pull_from_device()
+        # out_post_array = synapse_populations['E6']['E6'].out_post.view[:,:20]  # 1D float array
 
-        out_post_history.append(out_post_array.copy())  # 复制数据
+        # out_post_history.append(out_post_array.copy())  # 复制数据
 
-    all_data = np.vstack(out_post_history)  # shape: (n_steps, array_len)
-    np.savetxt("inSynE62E6.csv", all_data, delimiter=",", fmt="%.6f")
+    # all_data = np.vstack(out_post_history)  # shape: (n_steps, array_len)
+    # np.savetxt("inSynE62E6.csv", all_data, delimiter=",", fmt="%.6f")
 
     sim_end_time = perf_counter()
 
@@ -329,7 +329,7 @@ if __name__ == "__main__":
     if True:
         for n, data_chunks in spike_data.items():
             all_data = np.vstack(data_chunks)
-            np.savetxt(f"output/{n}_spikes.csv", all_data, delimiter=",", fmt=("%f", "%d"), header="Times [ms], Neuron ID")
+            np.savetxt(f"output/spike/{n}_spikes.csv", all_data, delimiter=",", fmt=("%f", "%d"), header="Times [ms], Neuron ID")
 
 
     print("Timing:")

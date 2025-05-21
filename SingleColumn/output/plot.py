@@ -8,20 +8,31 @@ import random
 import string
 
 def generate_unique_suffix(length=6):
-    # 当前日期（例如：2025-05-20）
     date_str = datetime.datetime.now().strftime("%m%d-%H%M")
-    # 随机字符串（大写+数字）
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
     return f"{date_str}_{rand_str}"
 
+# 创建输出目录
+os.makedirs("raster", exist_ok=True)
+os.makedirs("hist", exist_ok=True)
 
-# === 配置参数 ===
-neurons_per_group = 200  # 每组显示多少个神经元
-group_spacing = 5       # 群体之间纵向间隔
+popName = ["H1","E23","S23","P23","V23",
+           "E4","S4","P4","V4",
+           "E5","S5","P5","V5",
+           "E6","S6","P6","V6"]
+
+neurons_per_group = 200
+group_spacing = 50
 colors = ['red', 'blue']
 
-# === 文件读取 ===
-file_list = sorted(glob.glob("*_spikes.csv"))
+file_list = []
+for name in popName:
+    filename = f"/home/yangjinhao/PyGenn/SingleColumn/output/spike/{name}_spikes.csv"
+    if os.path.exists(filename):
+        file_list.append(filename)
+    else:
+        print(f"Warning: {filename} not found, skipping.")
+        file_list.append(None)  # 占位，确保顺序
 
 raster_points = []
 y_ticks = []
@@ -31,36 +42,42 @@ current_y_offset = 0
 group_avg_rates = []
 group_labels = []
 
-for idx, file in enumerate(file_list):
-    group_name = os.path.basename(file).split('_spikes.csv')[0]
-    df = pd.read_csv(file, comment='#', names=["Time", "NeuronID"])
-
-    unique_neurons = sorted(df["NeuronID"].unique())
-    selected_neurons = unique_neurons[:neurons_per_group]
-    filtered_df = df[df["NeuronID"].isin(selected_neurons)]
-
-    # 重新映射 Neuron ID 到连续的 Y 坐标
-    neuron_id_map = {nid: i + current_y_offset for i, nid in enumerate(selected_neurons)}
-    y_positions = filtered_df["NeuronID"].map(neuron_id_map)
-
-    raster_points.append((filtered_df["Time"], y_positions, colors[idx % 2]))
-
-    # Y 轴标签在中间
-    middle_y = current_y_offset + neurons_per_group // 2
-    y_ticks.append(middle_y)
+for idx, (group_name, file) in enumerate(zip(popName, file_list)):
     y_tick_labels.append(group_name)
+    y_ticks.append(current_y_offset + neurons_per_group // 2)
+    
+    if file is not None:
+        df = pd.read_csv(file, comment='#', names=["Time", "NeuronID"])
+        df = df[df["Time"] >= 100]  # 省略前100ms数据
 
-    current_y_offset += neurons_per_group + group_spacing
+        if not df.empty:
+            unique_neurons = sorted(df["NeuronID"].unique())
+            selected_neurons = unique_neurons[:neurons_per_group]
+            filtered_df = df[df["NeuronID"].isin(selected_neurons)]
 
-    # 平均发放率（按被选中的 neuron）
-    duration = df["Time"].max() - df["Time"].min()
-    avg_rate = len(filtered_df) / neurons_per_group / (duration / 1000)
+            neuron_id_map = {nid: i + current_y_offset for i, nid in enumerate(selected_neurons)}
+            y_positions = filtered_df["NeuronID"].map(neuron_id_map)
+            raster_points.append((filtered_df["Time"], y_positions, colors[idx % 2]))
+
+            duration = 900
+            total_neurons = df["NeuronID"].nunique()
+            if duration > 0 and total_neurons > 0:
+                avg_rate = len(df) / total_neurons / (duration / 1000)
+            else:
+                avg_rate = 0.0
+        else:
+            avg_rate = 0.0
+    else:
+        avg_rate = 0.0  # 文件不存在则速率为 0
+
     group_avg_rates.append(avg_rate)
     group_labels.append(group_name)
+    current_y_offset += neurons_per_group + group_spacing
 
-
+# 生成文件名后缀
 suffix = generate_unique_suffix()
-# === 绘制 Raster Plot ===
+
+# === Raster Plot ===
 plt.figure(figsize=(12, 6))
 for times, y_pos, color in raster_points:
     plt.scatter(times, y_pos, s=2, color=color)
@@ -72,11 +89,11 @@ plt.title(f"Raster Plot (First {neurons_per_group} Neurons per Group)")
 plt.tight_layout()
 plt.savefig(f"raster/raster_{suffix}.png")
 
-# === 绘制 发放率直方图 ===
+# === Firing Rate Histogram ===
 plt.figure(figsize=(10, 4))
 plt.bar(group_labels, group_avg_rates, color=[colors[i % 2] for i in range(len(group_labels))])
 plt.ylabel("Average Firing Rate (Hz)")
-plt.title("Average Firing Rate per Group")
+plt.title("Average Firing Rate per Group (Excluding First 100ms)")
 plt.xticks(rotation=45)
 plt.tight_layout()
 plt.savefig(f"hist/histogram_{suffix}.png")

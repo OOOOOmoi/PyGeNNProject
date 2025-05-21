@@ -10,6 +10,7 @@ from itertools import product
 import matplotlib.pyplot as plt
 import os
 import json
+from nested_dict import nested_dict
 current_dir = os.path.dirname(os.path.abspath(__file__))
 file_synapse_number = os.path.join(current_dir, "SynapsesNumber.txt")
 file_weight = os.path.join(current_dir, "SynapsesWeight.txt")
@@ -133,13 +134,12 @@ if __name__ == "__main__":
     # ----------------------------------------------------------------------------
     model = GeNNModel("float", "Singlecolumn")
     model.dt = DT_MS
-    model.fuse_postsynaptic_models = True
     model.default_narrow_sparse_ind_enabled = True
     model.timing_enabled = args.kernel_profiling
-    model.default_var_location = VarLocation.DEVICE
-    model.default_sparse_connectivity_location = VarLocation.DEVICE
+    model.default_var_location = VarLocation.HOST_DEVICE
+    model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
     poisson_input = args.poisson_input
-    # poisson_input = False
+    poisson_input = False
     with open("/home/yangjinhao/PyGenn/custom_Data_Model_3396.json",'r') as f:
         ParamOfAll=json.load(f)
     synWeight=ParamOfAll["synapse_weights_mean"]['V1']
@@ -207,6 +207,7 @@ if __name__ == "__main__":
     synWeight=get_syn_weight()
     synNum=get_syn_num()
     total_synapses = 0
+    synapse_populations = nested_dict()
     for tar_pop, src_pop in product(popName, popName):
 
         # Determine mean weight
@@ -236,7 +237,7 @@ if __name__ == "__main__":
             total_synapses += num_connections
             # Build unique synapse name
             synapse_name = tar_pop + "2" + src_pop
-            matrix_type = "SPARSE"
+            matrix_type = "PROCEDURAL"
 
             # Excitatory
             if src_pop.startswith("E"):
@@ -278,6 +279,9 @@ if __name__ == "__main__":
                 syn_pop.max_dendritic_delay_timesteps = max_dendritic_delay_slots
                 if matrix_type=="PROCEDURAL":
                     syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
+            synapse_populations[tar_pop][src_pop] = syn_pop
+        else:
+            synapse_populations[tar_pop][src_pop] = None
 
     print("Total neurons=%u, total synapses=%u" % (total_neurons, total_synapses))
 
@@ -296,7 +300,7 @@ if __name__ == "__main__":
     sim_start_time = perf_counter()
 
     spike_data = {n: [] for n in neuron_populations.keys()}
-
+    out_post_history = []
     while model.t < duration:
         # Advance simulation
         # print(model.timestep)
@@ -311,11 +315,18 @@ if __name__ == "__main__":
 
         if (model.timestep % ten_percent_timestep) == 0:
             print("%u%%" % (model.timestep / 100))
+        synapse_populations['E6']['E6'].out_post.pull_from_device()
+        out_post_array = synapse_populations['E6']['E6'].out_post.view[:,:20]  # 1D float array
+
+        out_post_history.append(out_post_array.copy())  # 复制数据
+
+    all_data = np.vstack(out_post_history)  # shape: (n_steps, array_len)
+    np.savetxt("inSynE62E6.csv", all_data, delimiter=",", fmt="%.6f")
 
     sim_end_time = perf_counter()
 
     # Merge data
-    if args.save_data:
+    if True:
         for n, data_chunks in spike_data.items():
             all_data = np.vstack(data_chunks)
             np.savetxt(f"output/{n}_spikes.csv", all_data, delimiter=",", fmt=("%f", "%d"), header="Times [ms], Neuron ID")

@@ -11,16 +11,18 @@ import matplotlib.pyplot as plt
 import os
 import json
 from collections import OrderedDict,defaultdict
-current_dir = os.path.dirname(os.path.abspath(__file__))
-DataPath=os.path.join(current_dir, "custom_Data_Model_3396.json")
-with open(DataPath,'r') as f:
-    ParamOfAll=json.load(f)
+from config import AreaList
+current_dir = os.path.dirname(__file__)
+parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
+DataPath=os.path.join(parent_dir, "custom_Data_Model_3396.json")
+with open(DataPath, 'r') as f:
+    ParamOfAll = json.load(f)
+
 SynapsesWeightMean=OrderedDict()
 SynapsesWeightSd=OrderedDict()
 SynapsesNumber=OrderedDict()
 NeuronNumber=OrderedDict()
 Dist=OrderedDict()
-AreaList=["V1","V2"]
 PopList=ParamOfAll['population_list']
 SynapsesWeightMean=ParamOfAll["synapse_weights_mean"]
 SynapsesWeightSd=ParamOfAll["synapse_weights_sd"]
@@ -92,30 +94,28 @@ def getDelayMap():
 def get_parser():
     parser = ArgumentParser()
     parser.add_argument("--duration", type=float, default=1000.0, help="Duration to simulate (ms)")
+    parser.add_argument("--stim", type=float, default=0.0, help="Stimulus current to apply to neurons E4 (nA)")
+    parser.add_argument("--stimStart", type=float, default=800.0, help="Start time of stimulus (ms)")
+    parser.add_argument("--stimEnd", type=float, default=1600.0, help="End time of stimulus (ms)")
     parser.add_argument("--neuron-scale", type=float, default=1.0, help="Scaling factor to apply to number of neurons")
     parser.add_argument("--connectivity-scale", type=float, default=1.0, help="Scaling factor to apply to number of neurons")
-    parser.add_argument("--kernel-profiling", action="store_true", help="Output kernel profiling data")
     parser.add_argument("--buffer-size", type=int, default=100, help="Size of recording buffer")
-    parser.add_argument("--scale-weights", action="store_true", help="wether Scale synaptic weights")
+    parser.add_argument("--cutff", action="store_true", help="Whether cut ff connections")
+    parser.add_argument("--cutfb", action="store_true", help="Whether cut fb connections")
     parser.add_argument("--J", type=float, default=1.0, help="Scaling factor of CC synaptic weights")
-    parser.add_argument("--scale-synapses", action="store_true", help="wether Scale synaptic numbers")
-    parser.add_argument("--K", type=int, default=2, help="Scale synaptic numbers")
+    parser.add_argument("--K", type=int, default=1, help="Scale synaptic numbers")
+    parser.add_argument("--SPARSE", action="store_true", help="Whether use sparse connectivity")
     return parser
-
 
 if __name__ == "__main__":
     args = get_parser().parse_args()
-    # ----------------------------------------------------------------------------
-    # Network creation
-    # ----------------------------------------------------------------------------
     model = GeNNModel("float", "DoubleColumn")
     model.dt = DT_MS
     model.fuse_postsynaptic_models = True
     model.default_narrow_sparse_ind_enabled = True
-    model.timing_enabled = args.kernel_profiling
+    model.timing_enabled = True
     model.default_var_location = VarLocation.HOST_DEVICE
     model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
-    J = args.J
     lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": 2.0}
     exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 0.5})
 
@@ -130,6 +130,7 @@ if __name__ == "__main__":
         """
     )
 
+
     print("Creating neuron populations:")
     total_neurons = 0
     neuron_populations = defaultdict(dict)
@@ -141,12 +142,12 @@ if __name__ == "__main__":
 
             pop_size = NeuronNumber[area][pop]*args.neuron_scale
             neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", lif_params, lif_init)
-            if area == "V1" and pop == "E4":
+            if AreaList.index(area) == 0 and pop == "E4" and args.stim!=0:
                 model.add_current_source(pop + '_pulse',
                     trigger_pulse_model, neuron_pop,
-                    {   "input_time":800,
-                        "output_time":1200,
-                        "magnitude": 0.04},
+                    {   "input_time":args.stimStart,
+                        "output_time":args.stimEnd,
+                        "magnitude": args.stim/1000.0},
             )
 
             # Enable spike recording
@@ -162,10 +163,10 @@ if __name__ == "__main__":
         for popTar, popSrc in product(PopList, PopList):
             wAve = SynapsesWeightMean[areaTar][popTar][areaSrc][popSrc]/1000.0
             wSd = SynapsesWeightSd[areaTar][popTar][areaSrc][popSrc]/1000.0
-            # if areaTar != areaSrc and areaSrc == AreaList[-1]:
-            #     continue
-            # if areaTar != areaSrc and popTar != 'E4':
-            #     continue
+            if AreaList.index(areaSrc)<AreaList.index(areaTar) and args.cutff:
+                continue
+            if AreaList.index(areaSrc)>AreaList.index(areaTar) and args.cutfb:
+                continue
             synNum = SynapsesNumber[areaTar][popTar][areaSrc][popSrc]*args.connectivity_scale
             tarName = areaTar+popTar
             srcName = areaSrc+popSrc
@@ -174,9 +175,9 @@ if __name__ == "__main__":
             delay_sd=delayMap[areaTar][popTar][areaSrc][popSrc]['sd']
             max_d=delayMap[areaTar][popTar][areaSrc][popSrc]['max']
             if(synNum>0):
-                if areaTar != areaSrc and args.scale_weights:
-                    wAve = J*wAve
-                if areaTar != areaSrc and args.scale_synapses:
+                if areaTar != areaSrc and args.J > 1:
+                    wAve = args.J*wAve
+                if areaTar != areaSrc and args.K > 1:
                     synNum = int(round(synNum * args.K))
                 print("\tConnection '%s' to '%s': numConnections=%u, meanWeight=%f, weightSD=%f, meanDelay=%f, delaySD=%f"
                 % (srcName, tarName, synNum, wAve, wSd, meanDelay, delay_sd))
@@ -186,7 +187,7 @@ if __name__ == "__main__":
                 d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
                 total_synapses += synNum
                 # Build unique synapse name
-                matrix_type = "SPARSE"
+                matrix_type = "SPARSE" if args.SPARSE else "PROCEDURAL"
                 if popSrc.startswith("E"):
                     w_dist = {"mean": wAve, "sd": wSd, "min": 0.0, "max": float(np.finfo(np.float32).max)}
                     static_synapse_init = init_weight_update("StaticPulseDendriticDelay", {},
@@ -271,3 +272,4 @@ if __name__ == "__main__":
     print("\tSparse init:%f" % (1000.0 * model.init_sparse_time))
     print("\tNeuron simulation:%f" % (1000.0 * model.neuron_update_time))
     print("\tSynapse simulation:%f" % (1000.0 * model.presynaptic_update_time))
+

@@ -23,7 +23,13 @@ popName = ["H1","E23","S23","P23","V23",
 
 neurons_per_group = 200
 group_spacing = 50
-colors = ['red', 'blue']
+color_map = {
+    "H": "purple",
+    "E": "red",
+    "S": "blue",
+    "P": "green",
+    "V": "orange"
+}
 
 file_list = []
 for name in popName:
@@ -57,7 +63,9 @@ for idx, (group_name, file) in enumerate(zip(popName, file_list)):
 
             neuron_id_map = {nid: i + current_y_offset for i, nid in enumerate(selected_neurons)}
             y_positions = filtered_df["NeuronID"].map(neuron_id_map)
-            raster_points.append((filtered_df["Time"], y_positions, colors[idx % 2]))
+            pop_type = group_name[0]  # 例如 "E23" -> "E"
+            color = color_map.get(pop_type, "gray")  # 默认为 gray
+            raster_points.append((filtered_df["Time"], y_positions, color))
 
             duration = 900
             total_neurons = df["NeuronID"].nunique()
@@ -91,7 +99,7 @@ plt.savefig(f"raster/raster_{suffix}.png")
 
 # === Firing Rate Histogram ===
 plt.figure(figsize=(10, 4))
-plt.bar(group_labels, group_avg_rates, color=[colors[i % 2] for i in range(len(group_labels))])
+plt.bar(group_labels, group_avg_rates, color=[color_map.get(pop[0], "gray") for pop in group_labels])
 plt.ylabel("Average Firing Rate (Hz)")
 plt.title("Average Firing Rate per Group (Excluding First 100ms)")
 plt.xticks(rotation=45)

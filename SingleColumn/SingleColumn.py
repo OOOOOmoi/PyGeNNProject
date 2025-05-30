@@ -44,7 +44,7 @@ popNum = {
     }
 input = {
     "H1": 501.0,
-    "V23": 501.0 + 15.0,
+    "V23": 501.0 + 10.0,
     "S23": 501.0,
     "E23": 501.0 + 50.0,
     "P23": 501.0 + 30.0,
@@ -134,6 +134,7 @@ if __name__ == "__main__":
     # ----------------------------------------------------------------------------
     model = GeNNModel("float", "Singlecolumn")
     model.dt = DT_MS
+    model.fuse_postsynaptic_models = False
     model.default_narrow_sparse_ind_enabled = True
     model.timing_enabled = args.kernel_profiling
     model.default_var_location = VarLocation.HOST_DEVICE
@@ -300,7 +301,7 @@ if __name__ == "__main__":
     sim_start_time = perf_counter()
 
     spike_data = {n: [] for n in neuron_populations.keys()}
-    out_post_history = []
+    out_post_history = nested_dict()
     while model.t < duration:
         # Advance simulation
         # print(model.timestep)
@@ -315,13 +316,28 @@ if __name__ == "__main__":
 
         if (model.timestep % ten_percent_timestep) == 0:
             print("%u%%" % (model.timestep / 100))
-        # synapse_populations['E6']['E6'].out_post.pull_from_device()
-        # out_post_array = synapse_populations['E6']['E6'].out_post.view[:,:20]  # 1D float array
+        
+        tar_pop = "E23"
+        for src_pop in popName:
+            if synapse_populations[tar_pop][src_pop] is not None:
+                synapse_populations[tar_pop][src_pop].out_post.pull_from_device()
+                out_post_array = synapse_populations[tar_pop][src_pop].out_post.view[:,:20]
+                if isinstance(out_post_history[tar_pop][src_pop], dict):
+                    out_post_history[tar_pop][src_pop] = []
+                out_post_history[tar_pop][src_pop].append(out_post_array.copy())
 
-        # out_post_history.append(out_post_array.copy())  # 复制数据
+    tar_pop = "E23"
+    for src_pop in popName:
+        data = out_post_history[tar_pop][src_pop]
+        if not data:  # 如果没有数据则跳过
+            continue
+        all_data = np.vstack(data)
+        folder_path = f"output/inSyn/{tar_pop}"
+        os.makedirs(folder_path, exist_ok=True)
 
-    # all_data = np.vstack(out_post_history)  # shape: (n_steps, array_len)
-    # np.savetxt("inSynE62E6.csv", all_data, delimiter=",", fmt="%.6f")
+        # 保存为 CSV
+        file_path = os.path.join(folder_path, f"{src_pop}2{tar_pop}.csv")
+        np.savetxt(file_path, all_data, delimiter=",", fmt="%.3f")
 
     sim_end_time = perf_counter()
 

@@ -1,1 +1,4 @@
-python DoubleColumn.py --save-data --kernel-profiling 
+python DoubleColumn.py --duration 2000 --scale-synapses --K 600
+cd output
+python plot.py
+cd ..

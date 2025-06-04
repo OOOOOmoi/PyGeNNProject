@@ -1,4 +1,5 @@
 import numpy as np
+import pygenn.cuda_backend
 from scipy.stats import norm
 from argparse import ArgumentParser
 import pygenn
@@ -93,23 +94,51 @@ def getDelayMap():
 
 def get_parser():
     parser = ArgumentParser()
-    parser.add_argument("--duration", type=float, default=1000.0, help="Duration to simulate (ms)")
-    parser.add_argument("--stim", type=float, default=0.0, help="Stimulus current to apply to neurons E4 (nA)")
-    parser.add_argument("--stimStart", type=float, default=800.0, help="Start time of stimulus (ms)")
-    parser.add_argument("--stimEnd", type=float, default=1600.0, help="End time of stimulus (ms)")
-    parser.add_argument("--neuron-scale", type=float, default=1.0, help="Scaling factor to apply to number of neurons")
-    parser.add_argument("--connectivity-scale", type=float, default=1.0, help="Scaling factor to apply to number of neurons")
-    parser.add_argument("--buffer-size", type=int, default=100, help="Size of recording buffer")
+    parser.add_argument("--duration", type=float, default=1000.0, nargs="?", help="Duration to simulate (ms)")
+    parser.add_argument("--stim", type=float, default=0.0, nargs="?", help="Stimulus current to apply to neurons E4 (nA)")
+    parser.add_argument("--stimStart", type=float, default=500.0, nargs="?", help="Start time of stimulus (ms)")
+    parser.add_argument("--stimEnd", type=float, default=800.0, nargs="?", help="End time of stimulus (ms)")
+    parser.add_argument("--neuron-scale", type=float, default=1.0, nargs="?", help="Scaling factor to apply to number of neurons")
+    parser.add_argument("--connectivity-scale", type=float, default=1.0, nargs="?", help="Scaling factor to apply to number of neurons")
+    parser.add_argument("--buffer", action="store_true", help="Whether use buffer store spike")
+    parser.add_argument("--buffer-size", type=int, default=100, nargs="?", help="Size of recording buffer")
     parser.add_argument("--cutff", action="store_true", help="Whether cut ff connections")
     parser.add_argument("--cutfb", action="store_true", help="Whether cut fb connections")
-    parser.add_argument("--J", type=float, default=1.0, help="Scaling factor of CC synaptic weights")
-    parser.add_argument("--K", type=int, default=1, help="Scale synaptic numbers")
+    parser.add_argument("--J", type=float, default=1.0, nargs="?", help="Scaling factor of CC synaptic weights")
+    parser.add_argument("--K", type=int, default=1, nargs="?", help="Scale synaptic numbers")
     parser.add_argument("--SPARSE", action="store_true", help="Whether use sparse connectivity")
     return parser
 
+def getModelName(args):
+    model_name = "StimExc"
+    for area in AreaList:
+        model_name += f"_{area}"
+    model_name += f"_{args.duration/1000.0:.1f}s"
+    if args.stim != 0:
+        model_name += f"_stim{args.stim:.1f}nA"
+        model_name += f"_start{args.stimStart:.1f}ms"
+        model_name += f"_end{args.stimEnd:.1f}ms"
+    if args.neuron_scale != 1.0:
+        model_name += f"_Nscale{args.neuron_scale:.1f}"
+    if args.connectivity_scale != 1.0:
+        model_name += f"_Sscale{args.connectivity_scale:.1f}"
+    if args.buffer:
+        model_name += f"_buffer{args.buffer_size}"
+    if args.cutff:
+        model_name += "_cutff"
+    if args.cutfb:
+        model_name += "_cutfb"
+    if args.J != 1.0:
+        model_name += f"_J{args.J:.1f}"
+    if args.K != 1:
+        model_name += f"_K{args.K}"
+    return model_name
+    
 if __name__ == "__main__":
+    # pygenn.cuda_backend.select_device(0)
     args = get_parser().parse_args()
-    model = GeNNModel("float", "DoubleColumn")
+    model_name = "GenCODE/" + getModelName(args)
+    model = GeNNModel("float", model_name)
     model.dt = DT_MS
     model.fuse_postsynaptic_models = True
     model.default_narrow_sparse_ind_enabled = True
@@ -131,7 +160,7 @@ if __name__ == "__main__":
     )
 
 
-    print("Creating neuron populations:")
+    # print("Creating neuron populations:")
     total_neurons = 0
     neuron_populations = defaultdict(dict)
     for area in AreaList:
@@ -142,7 +171,7 @@ if __name__ == "__main__":
 
             pop_size = NeuronNumber[area][pop]*args.neuron_scale
             neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", lif_params, lif_init)
-            if AreaList.index(area) == 0 and pop == "E4" and args.stim!=0:
+            if AreaList.index(area) == 0 and pop.startswith("E") and args.stim!=0:
                 model.add_current_source(pop + '_pulse',
                     trigger_pulse_model, neuron_pop,
                     {   "input_time":args.stimStart,
@@ -153,7 +182,7 @@ if __name__ == "__main__":
             # Enable spike recording
             neuron_pop.spike_recording_enabled = True
 
-            print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (popName, pop_size, input[pop]/1000.0))
+            # print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (popName, pop_size, input[pop]/1000.0))
             total_neurons += pop_size
             neuron_populations[area][pop] = neuron_pop
 
@@ -179,8 +208,8 @@ if __name__ == "__main__":
                     wAve = args.J*wAve
                 if areaTar != areaSrc and args.K > 1:
                     synNum = int(round(synNum * args.K))
-                print("\tConnection '%s' to '%s': numConnections=%u, meanWeight=%f, weightSD=%f, meanDelay=%f, delaySD=%f"
-                % (srcName, tarName, synNum, wAve, wSd, meanDelay, delay_sd))
+                # print("\tConnection '%s' to '%s': numConnections=%u, meanWeight=%f, weightSD=%f, meanDelay=%f, delaySD=%f"
+                # % (srcName, tarName, synNum, wAve, wSd, meanDelay, delay_sd))
                 # Build parameters for fixed number total connector
                 connect_params = {"num": synNum}
                 # Build distribution for delay parameters
@@ -219,14 +248,18 @@ if __name__ == "__main__":
     print("Total neurons=%u, total synapses=%u" % (total_neurons, total_synapses))
 
     print("Building Model")
+    build_start_time = perf_counter()
     model.build()
-
+    build_end_time = perf_counter()
     
     duration=args.duration
     duration_timesteps = int(round(duration / DT_MS))
     ten_percent_timestep = duration_timesteps // 10
     print("Loading Model")
-    model.load(num_recording_timesteps=args.buffer_size)
+    if args.buffer:
+        model.load(num_recording_timesteps=args.buffer_size)
+    else:
+        model.load(num_recording_timesteps=duration_timesteps)
 
     print("Simulating")
 
@@ -237,25 +270,27 @@ if __name__ == "__main__":
         area: {pop: [] for pop in neuron_populations[area].keys()}
         for area in neuron_populations.keys()
     }
-
+    flag=0
     while model.t < duration:
-        # Advance simulation
-        # print(model.timestep)
         model.step_time()
-
-        # Indicate every 10%
-        if not model.timestep % args.buffer_size:
-            model.pull_recording_buffers_from_device()
-            for area, pop_dict in neuron_populations.items():
-                for pop, p in pop_dict.items():
-                    spike_times, spike_ids = p.spike_recording_data[0]
-                    spike_data[area][pop].append(np.column_stack((spike_times, spike_ids)))
-
+        if args.buffer:
+            if not model.timestep % args.buffer_size:
+                model.pull_recording_buffers_from_device()
+                for area, pop_dict in neuron_populations.items():
+                    for pop, p in pop_dict.items():
+                        spike_times, spike_ids = p.spike_recording_data[0]
+                        spike_data[area][pop].append(np.column_stack((spike_times, spike_ids)))
         if (model.timestep % ten_percent_timestep) == 0:
-            print("%u%%" % (model.timestep / 100))
+            flag += 1
+            print("%u%%" % (flag * 10))
 
     sim_end_time = perf_counter()
-
+    if not args.buffer:
+        model.pull_recording_buffers_from_device()
+        for area, pop_dict in neuron_populations.items():
+            for pop, p in pop_dict.items():
+                spike_times, spike_ids = p.spike_recording_data[0]
+                spike_data[area][pop].append(np.column_stack((spike_times, spike_ids)))
     # Merge data
     for area, pop_dict in spike_data.items():
         for pop, data_chunks in pop_dict.items():
@@ -266,6 +301,7 @@ if __name__ == "__main__":
 
 
     print("Timing:")
+    print("\tBuild:%f" % ((build_end_time - build_start_time) * 1000.0))
     print("\tSimulation:%f" % ((sim_end_time - sim_start_time) * 1000.0))
 
     print("\tInit:%f" % (1000.0 * model.init_time))

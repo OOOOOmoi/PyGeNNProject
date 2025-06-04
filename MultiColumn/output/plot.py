@@ -43,9 +43,9 @@ for area in areaName:
         filename = f"/home/yangjinhao/PyGenn/MultiColumn/output/spike/{area}_{name}_spikes.csv"
         if os.path.exists(filename):
             file_list.append(filename)
-    else:
-        print(f"Warning: {filename} not found, skipping.")
-        file_list.append(None)  # 占位，确保顺序
+        else:
+            print(f"Warning: {filename} not found, skipping.")
+            file_list.append(None)  # 占位，确保顺序
 
 area_group_files = defaultdict(list)
 
@@ -90,7 +90,7 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
 
         try:
             df = pd.read_csv(filepath, comment='#', names=["Time", "NeuronID"])
-            df = df[df["Time"] >= 100]  # 忽略前100ms
+            df = df[df["Time"] >= 200]  # 忽略前100ms
 
             if not df.empty:
                 # Raster 用部分神经元
@@ -106,7 +106,7 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
 
                 # 计算平均发放率（用所有神经元）
                 total_neurons = df["NeuronID"].nunique()
-                duration = 900
+                duration = 800
                 if total_neurons > 0 and duration > 0:
                     avg_rate = len(df) / total_neurons / (duration / 1000)
                 else:

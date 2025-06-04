@@ -7,7 +7,9 @@ import datetime
 import random
 import string
 from collections import defaultdict
-
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from MultiColumn import AreaList
 def generate_unique_suffix(length=6):
     date_str = datetime.datetime.now().strftime("%m%d-%H%M")
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
@@ -32,7 +34,7 @@ popName = ["H1","E23","S23","P23","V23",
            "E4","S4","P4","V4",
            "E5","S5","P5","V5",
            "E6","S6","P6","V6"]
-areaName = ["V1","V2"]
+areaName = AreaList
 
 # === 收集文件并按 area 分类 ===
 file_list = []

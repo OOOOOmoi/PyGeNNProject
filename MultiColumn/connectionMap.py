@@ -9,9 +9,10 @@ DataPath=os.path.join(parent_dir, "custom_Data_Model_3396.json")
 with open(DataPath, 'r') as f:
     ParamOfAll = json.load(f)
 
-AreaList=["V1","V3"]
+AreaList=["V1", "V2", "V3", "V4"]
 PopList=ParamOfAll["population_list"]
 SynapsesWeightMean=ParamOfAll["synapse_weights_mean"]
+SynapsesNumber=ParamOfAll["synapses"]
 # 读取数据，忽略零权重
 filename = "SynapsesNumber.txt"
 data = []
@@ -20,14 +21,15 @@ nodes = set()
 for srcArea, tarArea in product(AreaList, AreaList):
     for srcPop, tarPop in product(PopList, PopList):
         weight = SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop]/1000.0
-        if weight == 0.0:  # 忽略零权重
+        synNum = SynapsesNumber[tarArea][tarPop][srcArea][srcPop]
+        if synNum == 0.0:  # 忽略零权重
             continue
         
         target_node = f"{tarArea}_{tarPop}"
         source_node = f"{srcArea}_{srcPop}"
         nodes.add(target_node)
         nodes.add(source_node)
-        data.append((target_node, source_node, weight))
+        data.append((target_node, source_node, synNum*weight))
 
 # 排序节点列表
 nodes = sorted(nodes)

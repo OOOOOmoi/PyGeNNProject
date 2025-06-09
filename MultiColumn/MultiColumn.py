@@ -116,8 +116,8 @@ def getModelName(args):
     model_name += f"_{args.duration/1000.0:.1f}s"
     if args.stim != 0:
         model_name += f"_stim{args.stim:.1f}nA"
-        model_name += f"_start{args.stimStart:.1f}ms"
-        model_name += f"_end{args.stimEnd:.1f}ms"
+        model_name += f"_start{args.stimStart/1000:.1f}s"
+        model_name += f"_end{args.stimEnd/1000:.1f}s"
     if args.neuron_scale != 1.0:
         model_name += f"_Nscale{args.neuron_scale:.1f}"
     if args.connectivity_scale != 1.0:
@@ -133,12 +133,14 @@ def getModelName(args):
     if args.K != 1:
         model_name += f"_K{args.K}"
     return model_name
-    
+
+
 if __name__ == "__main__":
-    # pygenn.cuda_backend.select_device(0)
     args = get_parser().parse_args()
-    model_name = "GenCODE/" + getModelName(args)
-    model = GeNNModel("float", model_name)
+    model_name = getModelName(args)
+    with open("output/last_model_name.txt", "w") as f:
+        f.write(model_name)
+    model = GeNNModel("float", "GenCODE/" + model_name)
     model.dt = DT_MS
     model.fuse_postsynaptic_models = True
     model.default_narrow_sparse_ind_enabled = True
@@ -208,6 +210,10 @@ if __name__ == "__main__":
                     wAve = args.J*wAve
                 if areaTar != areaSrc and args.K > 1:
                     synNum = int(round(synNum * args.K))
+                if areaTar == "V3" and args.J > 1:
+                    wAve = wAve/args.J
+                if areaSrc == "V3" and args.J > 1:
+                    wAve = wAve/args.J
                 # print("\tConnection '%s' to '%s': numConnections=%u, meanWeight=%f, weightSD=%f, meanDelay=%f, delaySD=%f"
                 # % (srcName, tarName, synNum, wAve, wSd, meanDelay, delay_sd))
                 # Build parameters for fixed number total connector

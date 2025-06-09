@@ -9,7 +9,7 @@ DataPath=os.path.join(parent_dir, "custom_Data_Model_3396.json")
 with open(DataPath, 'r') as f:
     ParamOfAll = json.load(f)
 
-AreaList=["V1", "V2", "V3", "V4"]
+AreaList=ParamOfAll['area_list']
 PopList=ParamOfAll["population_list"]
 SynapsesWeightMean=ParamOfAll["synapse_weights_mean"]
 SynapsesNumber=ParamOfAll["synapses"]

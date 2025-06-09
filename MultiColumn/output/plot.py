@@ -18,6 +18,8 @@ from MultiColumn import AreaList
 parser = argparse.ArgumentParser()
 parser.add_argument("--use-model-file", action="store_true", help="是否使用 last_model_name.txt 中的模型名称")
 parser.add_argument("--drop", type=int, default=200, help="drop out time")
+parser.add_argument("--psd", action="store_true", help="wether plot psd")
+parser.add_argument("--layer-psd", action="store_true", help="wether plot layer specific psd")
 args = parser.parse_args()
 
 if args.use_model_file:
@@ -94,6 +96,8 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
     group_file_dict = dict(group_files)
     ordered_group_files = [(pop, group_file_dict[pop]) for pop in popName if pop in group_file_dict]
 
+    layer_spikes_dict = defaultdict(list)
+
     for i, (pop, filepath) in enumerate(ordered_group_files):
         try:
             df = pd.read_csv(filepath, comment='#', names=["Time", "NeuronID"])
@@ -114,72 +118,77 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
                 total_neurons = df["NeuronID"].nunique()
                 avg_rate = len(df) / total_neurons / (duration / 1000) if total_neurons > 0 and duration > 0 else 0.0
 
+                layer_id = ''.join(filter(str.isdigit, pop))
+                if layer_id:
+                    layer_spikes_dict[layer_id].extend(df["Time"].values)
+                
                 # === PSD 分析（群体 firing rate） ===
-                spike_times = df["Time"].values
-                t_min = args.drop
-                t_max = int(df["Time"].max()) + 1
-                time_bins = np.arange(t_min, t_max + 1, 1)
-                binned_rate, _ = np.histogram(spike_times, bins=time_bins)
-                rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
+                if args.psd and not args.layer_psd:
+                    spike_times = df["Time"].values
+                    t_min = args.drop
+                    t_max = int(df["Time"].max()) + 1
+                    time_bins = np.arange(t_min, t_max + 1, 1)
+                    binned_rate, _ = np.histogram(spike_times, bins=time_bins)
+                    rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
 
-                stim_start = stim_end = None
-                if model_name and "_stim" in model_name:
-                    try:
-                        stim_start = float(model_name.split("_start")[1].split("s")[0]) * 1000
-                        stim_end = float(model_name.split("_end")[1].split("s")[0]) * 1000
-                    except Exception as e:
-                        print(f"Error parsing stim time: {e}")
+                    stim_start = stim_end = None
+                    if model_name and "_stim" in model_name:
+                        try:
+                            stim_start = float(model_name.split("_start")[1].split("s")[0]) * 1000
+                            stim_end = float(model_name.split("_end")[1].split("s")[0]) * 1000
+                        except Exception as e:
+                            print(f"Error parsing stim time: {e}")
 
-                fs = 1000
-                if stim_start and stim_end:
-                    t_range = time_bins[:-1]
-                    stim_mask = (t_range >= stim_start) & (t_range < stim_end)
-                    nostim_mask = ~stim_mask
+                    fs = 1000
+                    if stim_start and stim_end:
+                        t_range = time_bins[:-1]
+                        stim_mask = (t_range >= stim_start) & (t_range < stim_end)
+                        nostim_mask = ~stim_mask
 
-                    if stim_mask.sum() > 10:
-                        f_stim, psd_stim = welch(rate_smoothed[stim_mask], fs=fs, nperseg=256)
+                        if stim_mask.sum() > 10:
+                            f_stim, psd_stim = welch(rate_smoothed[stim_mask], fs=fs, nperseg=256)
+                        else:
+                            f_stim, psd_stim = None, None
+
+                        if nostim_mask.sum() > 10:
+                            f_nostim, psd_nostim = welch(rate_smoothed[nostim_mask], fs=fs, nperseg=256)
+                        else:
+                            f_nostim, psd_nostim = None, None
                     else:
+                        f_nostim, psd_nostim = welch(rate_smoothed, fs=fs, nperseg=256)
                         f_stim, psd_stim = None, None
 
-                    if nostim_mask.sum() > 10:
-                        f_nostim, psd_nostim = welch(rate_smoothed[nostim_mask], fs=fs, nperseg=256)
+                    def truncate_psd(f, psd, f_max=100):
+                        if f is None or psd is None:
+                            return None, None
+                        mask = f <= f_max
+                        return f[mask], psd[mask]
+
+                    f_nostim, psd_nostim = truncate_psd(f_nostim, psd_nostim)
+                    f_stim, psd_stim = truncate_psd(f_stim, psd_stim)
+
+                    fig_psd, axs_psd = plt.subplots(1, 2 if psd_stim is not None else 1, figsize=(10, 4))
+                    if psd_stim is not None:
+                        axs_psd[0].plot(f_nostim, psd_nostim, color="black", label="No Stim")
+                        axs_psd[0].set_title("No Stim")
+                        axs_psd[1].plot(f_stim, psd_stim, color="orange", label="Stim")
+                        axs_psd[1].set_title("Stim")
+                        for ax in axs_psd:
+                            ax.set_xlabel("Frequency (Hz)")
+                            ax.set_ylabel("Power")
+                            ax.grid(True)
                     else:
-                        f_nostim, psd_nostim = None, None
-                else:
-                    f_nostim, psd_nostim = welch(rate_smoothed, fs=fs, nperseg=256)
-                    f_stim, psd_stim = None, None
+                        axs_psd.plot(f_nostim, psd_nostim, color="black", label="No Stim")
+                        axs_psd.set_xlabel("Frequency (Hz)")
+                        axs_psd.set_ylabel("Power")
+                        axs_psd.set_title("No Stim")
+                        axs_psd.grid(True)
 
-                def truncate_psd(f, psd, f_max=100):
-                    if f is None or psd is None:
-                        return None, None
-                    mask = f <= f_max
-                    return f[mask], psd[mask]
-
-                f_nostim, psd_nostim = truncate_psd(f_nostim, psd_nostim)
-                f_stim, psd_stim = truncate_psd(f_stim, psd_stim)
-
-                fig_psd, axs_psd = plt.subplots(1, 2 if psd_stim is not None else 1, figsize=(10, 4))
-                if psd_stim is not None:
-                    axs_psd[0].plot(f_nostim, psd_nostim, color="black", label="No Stim")
-                    axs_psd[0].set_title("No Stim")
-                    axs_psd[1].plot(f_stim, psd_stim, color="orange", label="Stim")
-                    axs_psd[1].set_title("Stim")
-                    for ax in axs_psd:
-                        ax.set_xlabel("Frequency (Hz)")
-                        ax.set_ylabel("Power")
-                        ax.grid(True)
-                else:
-                    axs_psd.plot(f_nostim, psd_nostim, color="black", label="No Stim")
-                    axs_psd.set_xlabel("Frequency (Hz)")
-                    axs_psd.set_ylabel("Power")
-                    axs_psd.set_title("No Stim")
-                    axs_psd.grid(True)
-
-                fig_psd.suptitle(f"{area} - {pop} Power Spectrum")
-                fig_psd.tight_layout()
-                os.makedirs(f"psd/{area}", exist_ok=True)
-                fig_psd.savefig(f"psd/{area}/{pop}_psd.png")
-                plt.close(fig_psd)
+                    fig_psd.suptitle(f"{area} - {pop} Power Spectrum")
+                    fig_psd.tight_layout()
+                    os.makedirs(f"psd/{area}", exist_ok=True)
+                    fig_psd.savefig(f"psd/{area}/{pop}_psd.png")
+                    plt.close(fig_psd)
 
             else:
                 avg_rate = 0.0
@@ -193,6 +202,69 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
         group_labels.append(pop)
         avg_rates.append(avg_rate)
         current_y_offset += neurons_per_group + group_spacing
+
+    if args.layer_psd:
+        fs = 1000
+        for layer, spikes in layer_spikes_dict.items():
+            if len(spikes) < 10:
+                continue
+            spike_times = np.array(spikes)
+            t_min = args.drop
+            t_max = int(spike_times.max()) + 1
+            time_bins = np.arange(t_min, t_max + 1, 1)
+            binned_rate, _ = np.histogram(spike_times, bins=time_bins)
+            rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
+
+            stim_start = stim_end = None
+            if model_name and "_stim" in model_name:
+                try:
+                    stim_start = float(model_name.split("_start")[1].split("s")[0]) * 1000
+                    stim_end = float(model_name.split("_end")[1].split("s")[0]) * 1000
+                except Exception as e:
+                    print(f"Error parsing stim time: {e}")
+
+            if stim_start and stim_end:
+                t_range = time_bins[:-1]
+                stim_mask = (t_range >= stim_start) & (t_range < stim_end)
+                nostim_mask = ~stim_mask
+                f_stim, psd_stim = welch(rate_smoothed[stim_mask], fs=fs, nperseg=256) if stim_mask.sum() > 10 else (None, None)
+                f_nostim, psd_nostim = welch(rate_smoothed[nostim_mask], fs=fs, nperseg=256) if nostim_mask.sum() > 10 else (None, None)
+            else:
+                f_nostim, psd_nostim = welch(rate_smoothed, fs=fs, nperseg=256)
+                f_stim, psd_stim = None, None
+
+            def truncate_psd(f, psd, f_max=100):
+                if f is None or psd is None:
+                    return None, None
+                mask = f <= f_max
+                return f[mask], psd[mask]
+
+            f_nostim, psd_nostim = truncate_psd(f_nostim, psd_nostim)
+            f_stim, psd_stim = truncate_psd(f_stim, psd_stim)
+
+            fig_layer_psd, axs_layer_psd = plt.subplots(1, 2 if psd_stim is not None else 1, figsize=(10, 4))
+            if psd_stim is not None:
+                axs_layer_psd[0].plot(f_nostim, psd_nostim, color="black")
+                axs_layer_psd[0].set_title("No Stim")
+                axs_layer_psd[1].plot(f_stim, psd_stim, color="orange")
+                axs_layer_psd[1].set_title("Stim")
+                for ax in axs_layer_psd:
+                    ax.set_xlabel("Frequency (Hz)")
+                    ax.set_ylabel("Power")
+                    ax.grid(True)
+            else:
+                axs_layer_psd.plot(f_nostim, psd_nostim, color="black")
+                axs_layer_psd.set_xlabel("Frequency (Hz)")
+                axs_layer_psd.set_ylabel("Power")
+                axs_layer_psd.set_title("No Stim")
+                axs_layer_psd.grid(True)
+
+            fig_layer_psd.suptitle(f"{area} - Layer {layer} Power Spectrum")
+            fig_layer_psd.tight_layout()
+            os.makedirs(f"psd/{area}", exist_ok=True)
+            fig_layer_psd.savefig(f"psd/{area}/{layer}_psd.png")
+            plt.close(fig_layer_psd)
+
 
     ax_raster = axs_raster[area_idx]
     for times, y_pos, color in raster_points:

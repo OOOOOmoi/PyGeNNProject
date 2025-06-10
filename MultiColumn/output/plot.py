@@ -13,14 +13,21 @@ from scipy.signal import welch
 from scipy.ndimage import gaussian_filter1d
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from MultiColumn import AreaList
+from MultiColumn import AreaList, NeuronNumber
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use-model-file", action="store_true", help="是否使用 last_model_name.txt 中的模型名称")
 parser.add_argument("--drop", type=int, default=200, help="drop out time")
-parser.add_argument("--psd", action="store_true", help="wether plot psd")
+parser.add_argument("--pop-psd", action="store_true", help="wether plot psd")
 parser.add_argument("--layer-psd", action="store_true", help="wether plot layer specific psd")
+parser.add_argument("--time-bins", type=float, default=1, help="length of rate bin")
 args = parser.parse_args()
+
+def truncate_psd(f, psd, f_max=100):
+    if f is None or psd is None:
+        return None, None
+    mask = f <= f_max
+    return f[mask], psd[mask]
 
 if args.use_model_file:
     with open("last_model_name.txt", "r") as f:
@@ -120,15 +127,24 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
 
                 layer_id = ''.join(filter(str.isdigit, pop))
                 if layer_id:
-                    layer_spikes_dict[layer_id].extend(df["Time"].values)
+                    if layer_id not in layer_spikes_dict:
+                        layer_spikes_dict[layer_id] = {"spike_times": [], "neuron_count": 0}
+                    layer_spikes_dict[layer_id]["spike_times"].extend(df["Time"].values)
+
+                    # 从 NeuronNumber[area][pop] 读取神经元数量并累加
+                    if area in NeuronNumber and pop in NeuronNumber[area]:
+                        layer_spikes_dict[layer_id]["neuron_count"] += NeuronNumber[area][pop]
+                    else:
+                        print(f"Warning: neuron count not found for area {area}, pop {pop}")
                 
                 # === PSD 分析（群体 firing rate） ===
-                if args.psd and not args.layer_psd:
+                if args.pop_psd:
                     spike_times = df["Time"].values
                     t_min = args.drop
                     t_max = int(df["Time"].max()) + 1
-                    time_bins = np.arange(t_min, t_max + 1, 1)
+                    time_bins = np.arange(t_min, t_max + 1, args.time_bins)
                     binned_rate, _ = np.histogram(spike_times, bins=time_bins)
+                    binned_rate = binned_rate * 1000 / df["NeuronID"].max()
                     rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
 
                     stim_start = stim_end = None
@@ -139,7 +155,7 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
                         except Exception as e:
                             print(f"Error parsing stim time: {e}")
 
-                    fs = 1000
+                    fs = 1 / args.time_bins * 1000
                     if stim_start and stim_end:
                         t_range = time_bins[:-1]
                         stim_mask = (t_range >= stim_start) & (t_range < stim_end)
@@ -157,12 +173,6 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
                     else:
                         f_nostim, psd_nostim = welch(rate_smoothed, fs=fs, nperseg=256)
                         f_stim, psd_stim = None, None
-
-                    def truncate_psd(f, psd, f_max=100):
-                        if f is None or psd is None:
-                            return None, None
-                        mask = f <= f_max
-                        return f[mask], psd[mask]
 
                     f_nostim, psd_nostim = truncate_psd(f_nostim, psd_nostim)
                     f_stim, psd_stim = truncate_psd(f_stim, psd_stim)
@@ -204,15 +214,17 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
         current_y_offset += neurons_per_group + group_spacing
 
     if args.layer_psd:
-        fs = 1000
-        for layer, spikes in layer_spikes_dict.items():
+        for layer, layer_data in layer_spikes_dict.items():
+            spikes = layer_data["spike_times"]
+            neuron_count = layer_data["neuron_count"]
             if len(spikes) < 10:
                 continue
             spike_times = np.array(spikes)
             t_min = args.drop
             t_max = int(spike_times.max()) + 1
-            time_bins = np.arange(t_min, t_max + 1, 1)
+            time_bins = np.arange(t_min, t_max + 1, args.time_bins)
             binned_rate, _ = np.histogram(spike_times, bins=time_bins)
+            binned_rate = binned_rate * 1000 / df["NeuronID"].max()
             rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
 
             stim_start = stim_end = None
@@ -222,7 +234,7 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
                     stim_end = float(model_name.split("_end")[1].split("s")[0]) * 1000
                 except Exception as e:
                     print(f"Error parsing stim time: {e}")
-
+            fs = 1 / args.time_bins * 1000
             if stim_start and stim_end:
                 t_range = time_bins[:-1]
                 stim_mask = (t_range >= stim_start) & (t_range < stim_end)
@@ -232,12 +244,6 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
             else:
                 f_nostim, psd_nostim = welch(rate_smoothed, fs=fs, nperseg=256)
                 f_stim, psd_stim = None, None
-
-            def truncate_psd(f, psd, f_max=100):
-                if f is None or psd is None:
-                    return None, None
-                mask = f <= f_max
-                return f[mask], psd[mask]
 
             f_nostim, psd_nostim = truncate_psd(f_nostim, psd_nostim)
             f_stim, psd_stim = truncate_psd(f_stim, psd_stim)

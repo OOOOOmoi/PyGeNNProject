@@ -1,1 +1,1 @@
-StimExc_V1_1.5s_stim40.0nA_start0.6s_end1.2s
+StimExc_V1_V2_VP_V3_V3A_MT_V4t_V4_1.5s_stim50.0nA_start0.6s_end1.2s

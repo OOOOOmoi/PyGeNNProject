@@ -16,12 +16,17 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from MultiColumn import AreaList, NeuronNumber
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--use-model-file", action="store_true", help="是否使用 last_model_name.txt 中的模型名称")
 parser.add_argument("--drop", type=int, default=200, help="drop out time")
 parser.add_argument("--pop-psd", action="store_true", help="wether plot psd")
 parser.add_argument("--layer-psd", action="store_true", help="wether plot layer specific psd")
 parser.add_argument("--time-bins", type=float, default=1, help="length of rate bin")
+parser.add_argument("--area-psd", action="store_true", help="wether plot area psd")
 args = parser.parse_args()
+
+def generate_unique_suffix(length=3):
+    date_str = datetime.datetime.now().strftime("%m%d-%H%M")
+    rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+    return f"{date_str}_{rand_str}"
 
 def truncate_psd(f, psd, f_max=100):
     if f is None or psd is None:
@@ -29,20 +34,108 @@ def truncate_psd(f, psd, f_max=100):
     mask = f <= f_max
     return f[mask], psd[mask]
 
-if args.use_model_file:
-    with open("last_model_name.txt", "r") as f:
-        model_name = f.read().strip()
-else:
-    model_name = None
+def plot_firing_rate_curve(rate_smoothed, time_bins, suffix, model_name, area, layer=None, pop=None):
+    # 构造时间轴：用每个 bin 的中心时间点表示
+    time_axis = (time_bins[:-1] + time_bins[1:]) / 2  # ms
 
-def generate_unique_suffix(length=6):
-    date_str = datetime.datetime.now().strftime("%m%d-%H%M")
-    rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
-    return f"{date_str}_{rand_str}"
+    plt.figure(figsize=(10, 4))
+    plt.plot(time_axis, rate_smoothed, color='blue')
+    plt.xlabel("Time (ms)")
+    plt.ylabel("Firing Rate (Hz)")
+    plt.grid(True)
+
+    plt.tight_layout()
+    if layer is None and pop is not None:
+        plt.title(f"{area} - {pop} Firing Rate - {model_name}" if model_name else f"{area} - {pop} Firing Rate")
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        save_path = f"rate/{area}/pop/{pop}_{suffix}.png"
+        os.makedirs(f"rate/{area}/pop", exist_ok=True)
+        plt.savefig(save_path)
+    elif layer is not None and pop is None:
+        plt.title(f"{area} - Layer {layer} Firing Rate - {model_name}" if model_name else f"{area} - Layer {layer} Firing Rate")
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        save_path = f"rate/{area}/layer/{layer}_{suffix}.png"
+        os.makedirs(f"rate/{area}/layer", exist_ok=True)
+        plt.savefig(save_path)
+    elif layer is None and pop is None:
+        plt.title(f"{area} Firing Rate - {model_name}" if model_name else f"{area} Firing Rate")
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        save_path = f"rate/{area}/firing_rate_{suffix}.png"
+        os.makedirs(f"rate/{area}/", exist_ok=True)
+        plt.savefig(save_path)
+    plt.close()
+
+def plot_psd(model_name, fs, time_bins, rate_smoothed, suffix, area, layer=None, pop=None):
+    stim_start = stim_end = None
+    if model_name and "_stim" in model_name:
+        try:
+            stim_start = float(model_name.split("_start")[1].split("s")[0]) * 1000
+            stim_end = float(model_name.split("_end")[1].split("s")[0]) * 1000
+        except Exception as e:
+            print(f"Error parsing stim time: {e}")
+
+    fs = 1 / args.time_bins * 1000
+    if stim_start and stim_end:
+        t_range = time_bins[:-1]
+        stim_mask = (t_range >= stim_start) & (t_range < stim_end)
+        nostim_mask = ~stim_mask
+
+        if stim_mask.sum() > 10:
+            f_stim, psd_stim = welch(rate_smoothed[stim_mask], fs=fs, nperseg=256)
+        else:
+            f_stim, psd_stim = None, None
+
+        if nostim_mask.sum() > 10:
+            f_nostim, psd_nostim = welch(rate_smoothed[nostim_mask], fs=fs, nperseg=256)
+        else:
+            f_nostim, psd_nostim = None, None
+    else:
+        f_nostim, psd_nostim = welch(rate_smoothed, fs=fs, nperseg=256)
+        f_stim, psd_stim = None, None
+
+    f_nostim, psd_nostim = truncate_psd(f_nostim, psd_nostim)
+    f_stim, psd_stim = truncate_psd(f_stim, psd_stim)
+
+    fig_psd, axs_psd = plt.subplots(1, 2 if psd_stim is not None else 1, figsize=(10, 4))
+    if psd_stim is not None:
+        axs_psd[0].plot(f_nostim, psd_nostim, color="black", label="No Stim")
+        axs_psd[0].set_title("No Stim")
+        axs_psd[1].plot(f_stim, psd_stim, color="orange", label="Stim")
+        axs_psd[1].set_title("Stim")
+        for ax in axs_psd:
+            ax.set_xlabel("Frequency (Hz)")
+            ax.set_ylabel("Power")
+            ax.grid(True)
+    else:
+        axs_psd.plot(f_nostim, psd_nostim, color="black", label="No Stim")
+        axs_psd.set_xlabel("Frequency (Hz)")
+        axs_psd.set_ylabel("Power")
+        axs_psd.set_title("No Stim")
+        axs_psd.grid(True)
+    if layer == None and pop != None:
+        fig_psd.suptitle(f"{area} - {pop} Psd - {model_name}" if model_name else f"{area} - {pop} Psd")
+        fig_psd.tight_layout(rect=[0, 0, 1, 0.95])
+        os.makedirs(f"psd/{area}/pop", exist_ok=True)
+        fig_psd.savefig(f"psd/{area}/pop/{pop}_{suffix}.png")
+    elif layer != None and pop == None:
+        fig_psd.suptitle(f"{area} - Layer {layer} Psd - {model_name}" if model_name else f"{area} - Layer {layer} Psd")
+        fig_psd.tight_layout(rect=[0, 0, 1, 0.95])
+        os.makedirs(f"psd/{area}/layer", exist_ok=True)
+        fig_psd.savefig(f"psd/{area}/layer/{layer}_{suffix}.png")
+    elif layer == None and pop == None:
+        fig_psd.suptitle(f"{area} Psd - {model_name}" if model_name else f"{area} Psd")
+        fig_psd.tight_layout(rect=[0, 0, 1, 0.95])
+        os.makedirs(f"psd/{area}/", exist_ok=True)
+        fig_psd.savefig(f"psd/{area}/psd_{suffix}.png")
+    plt.close(fig_psd)
+
+with open("last_model_name.txt", "r") as f:
+    model_name = f.read().strip()
 
 os.makedirs("raster", exist_ok=True)
 os.makedirs("hist", exist_ok=True)
 os.makedirs("psd", exist_ok=True)
+os.makedirs("rate", exist_ok=True)
 
 neurons_per_group = 200
 group_spacing = 50
@@ -99,6 +192,7 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
     raster_points = []
     avg_rates = []
     group_labels = []
+    all_spike = []
 
     group_file_dict = dict(group_files)
     ordered_group_files = [(pop, group_file_dict[pop]) for pop in popName if pop in group_file_dict]
@@ -137,6 +231,8 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
                     else:
                         print(f"Warning: neuron count not found for area {area}, pop {pop}")
                 
+                all_spike.append(df["Time"].values)
+
                 # === PSD 分析（群体 firing rate） ===
                 if args.pop_psd:
                     spike_times = df["Time"].values
@@ -146,59 +242,10 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
                     binned_rate, _ = np.histogram(spike_times, bins=time_bins)
                     binned_rate = binned_rate * 1000 / df["NeuronID"].max()
                     rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
-
-                    stim_start = stim_end = None
-                    if model_name and "_stim" in model_name:
-                        try:
-                            stim_start = float(model_name.split("_start")[1].split("s")[0]) * 1000
-                            stim_end = float(model_name.split("_end")[1].split("s")[0]) * 1000
-                        except Exception as e:
-                            print(f"Error parsing stim time: {e}")
-
-                    fs = 1 / args.time_bins * 1000
-                    if stim_start and stim_end:
-                        t_range = time_bins[:-1]
-                        stim_mask = (t_range >= stim_start) & (t_range < stim_end)
-                        nostim_mask = ~stim_mask
-
-                        if stim_mask.sum() > 10:
-                            f_stim, psd_stim = welch(rate_smoothed[stim_mask], fs=fs, nperseg=256)
-                        else:
-                            f_stim, psd_stim = None, None
-
-                        if nostim_mask.sum() > 10:
-                            f_nostim, psd_nostim = welch(rate_smoothed[nostim_mask], fs=fs, nperseg=256)
-                        else:
-                            f_nostim, psd_nostim = None, None
-                    else:
-                        f_nostim, psd_nostim = welch(rate_smoothed, fs=fs, nperseg=256)
-                        f_stim, psd_stim = None, None
-
-                    f_nostim, psd_nostim = truncate_psd(f_nostim, psd_nostim)
-                    f_stim, psd_stim = truncate_psd(f_stim, psd_stim)
-
-                    fig_psd, axs_psd = plt.subplots(1, 2 if psd_stim is not None else 1, figsize=(10, 4))
-                    if psd_stim is not None:
-                        axs_psd[0].plot(f_nostim, psd_nostim, color="black", label="No Stim")
-                        axs_psd[0].set_title("No Stim")
-                        axs_psd[1].plot(f_stim, psd_stim, color="orange", label="Stim")
-                        axs_psd[1].set_title("Stim")
-                        for ax in axs_psd:
-                            ax.set_xlabel("Frequency (Hz)")
-                            ax.set_ylabel("Power")
-                            ax.grid(True)
-                    else:
-                        axs_psd.plot(f_nostim, psd_nostim, color="black", label="No Stim")
-                        axs_psd.set_xlabel("Frequency (Hz)")
-                        axs_psd.set_ylabel("Power")
-                        axs_psd.set_title("No Stim")
-                        axs_psd.grid(True)
-
-                    fig_psd.suptitle(f"{area} - {pop} Power Spectrum")
-                    fig_psd.tight_layout()
-                    os.makedirs(f"psd/{area}", exist_ok=True)
-                    fig_psd.savefig(f"psd/{area}/{pop}_psd.png")
-                    plt.close(fig_psd)
+                    plot_firing_rate_curve(rate_smoothed=rate_smoothed, time_bins=time_bins, 
+                                           suffix=suffix, model_name=model_name, area=area, pop=pop)
+                plot_psd(model_name=model_name, fs=1 / args.time_bins * 1000, time_bins=time_bins, 
+                            rate_smoothed=rate_smoothed, suffix=suffix, area=area, pop=pop)
 
             else:
                 avg_rate = 0.0
@@ -213,64 +260,40 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
         avg_rates.append(avg_rate)
         current_y_offset += neurons_per_group + group_spacing
 
-    if args.layer_psd:
-        for layer, layer_data in layer_spikes_dict.items():
-            spikes = layer_data["spike_times"]
-            neuron_count = layer_data["neuron_count"]
-            if len(spikes) < 10:
+    for layer, layer_data in layer_spikes_dict.items():
+        spikes = layer_data["spike_times"]
+        neuron_count = layer_data["neuron_count"]
+        if len(spikes) < 10:
+            continue
+        spike_times = np.array(spikes)
+        t_min = args.drop
+        t_max = int(spike_times.max()) + 1
+        time_bins = np.arange(t_min, t_max + 1, args.time_bins)
+        binned_rate, _ = np.histogram(spike_times, bins=time_bins)
+        binned_rate = binned_rate * 1000 / neuron_count
+        rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
+        if args.layer_psd:
+            plot_firing_rate_curve(rate_smoothed=rate_smoothed, time_bins=time_bins, 
+                                    suffix=suffix, model_name=model_name, area=area, layer=layer)
+        plot_psd(model_name=model_name, fs=1 / args.time_bins * 1000, time_bins=time_bins, 
+                    rate_smoothed=rate_smoothed, suffix=suffix, area=area, layer=layer)
+
+    if args.area_psd:
+        spikes = all_spike
+        neuron_count = NeuronNumber[area]['total']
+        if len(spikes) < 10:
                 continue
-            spike_times = np.array(spikes)
-            t_min = args.drop
-            t_max = int(spike_times.max()) + 1
-            time_bins = np.arange(t_min, t_max + 1, args.time_bins)
-            binned_rate, _ = np.histogram(spike_times, bins=time_bins)
-            binned_rate = binned_rate * 1000 / df["NeuronID"].max()
-            rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
-
-            stim_start = stim_end = None
-            if model_name and "_stim" in model_name:
-                try:
-                    stim_start = float(model_name.split("_start")[1].split("s")[0]) * 1000
-                    stim_end = float(model_name.split("_end")[1].split("s")[0]) * 1000
-                except Exception as e:
-                    print(f"Error parsing stim time: {e}")
-            fs = 1 / args.time_bins * 1000
-            if stim_start and stim_end:
-                t_range = time_bins[:-1]
-                stim_mask = (t_range >= stim_start) & (t_range < stim_end)
-                nostim_mask = ~stim_mask
-                f_stim, psd_stim = welch(rate_smoothed[stim_mask], fs=fs, nperseg=256) if stim_mask.sum() > 10 else (None, None)
-                f_nostim, psd_nostim = welch(rate_smoothed[nostim_mask], fs=fs, nperseg=256) if nostim_mask.sum() > 10 else (None, None)
-            else:
-                f_nostim, psd_nostim = welch(rate_smoothed, fs=fs, nperseg=256)
-                f_stim, psd_stim = None, None
-
-            f_nostim, psd_nostim = truncate_psd(f_nostim, psd_nostim)
-            f_stim, psd_stim = truncate_psd(f_stim, psd_stim)
-
-            fig_layer_psd, axs_layer_psd = plt.subplots(1, 2 if psd_stim is not None else 1, figsize=(10, 4))
-            if psd_stim is not None:
-                axs_layer_psd[0].plot(f_nostim, psd_nostim, color="black")
-                axs_layer_psd[0].set_title("No Stim")
-                axs_layer_psd[1].plot(f_stim, psd_stim, color="orange")
-                axs_layer_psd[1].set_title("Stim")
-                for ax in axs_layer_psd:
-                    ax.set_xlabel("Frequency (Hz)")
-                    ax.set_ylabel("Power")
-                    ax.grid(True)
-            else:
-                axs_layer_psd.plot(f_nostim, psd_nostim, color="black")
-                axs_layer_psd.set_xlabel("Frequency (Hz)")
-                axs_layer_psd.set_ylabel("Power")
-                axs_layer_psd.set_title("No Stim")
-                axs_layer_psd.grid(True)
-
-            fig_layer_psd.suptitle(f"{area} - Layer {layer} Power Spectrum")
-            fig_layer_psd.tight_layout()
-            os.makedirs(f"psd/{area}", exist_ok=True)
-            fig_layer_psd.savefig(f"psd/{area}/{layer}_psd.png")
-            plt.close(fig_layer_psd)
-
+        spike_times = np.concatenate(spikes)
+        t_min = args.drop
+        t_max = int(spike_times.max()) + 1
+        time_bins = np.arange(t_min, t_max + 1, args.time_bins)
+        binned_rate, _ = np.histogram(spike_times, bins=time_bins)
+        binned_rate = binned_rate * 1000 / neuron_count
+        rate_smoothed = gaussian_filter1d(binned_rate.astype(float), sigma=3)
+        plot_firing_rate_curve(rate_smoothed=rate_smoothed, time_bins=time_bins, 
+                                suffix=suffix, model_name=model_name, area=area)
+    plot_psd(model_name=model_name, fs=1 / args.time_bins * 1000, time_bins=time_bins, 
+                rate_smoothed=rate_smoothed, suffix=suffix, area=area)
 
     ax_raster = axs_raster[area_idx]
     for times, y_pos, color in raster_points:
@@ -281,21 +304,23 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
     ax_raster.set_ylabel(f"{area}")
     if area_idx == len(area_group_files) - 1:
         ax_raster.set_xlabel("Time (ms)")
-    ax_raster.set_title(f"{area} Raster")
+    if model_name:
+        ax_raster.set_title(f"{area} Raster - {model_name}")
+    else:
+        ax_raster.set_title(f"{area} Raster")
 
     ax_hist = axs_hist[area_idx]
     ax_hist.bar(group_labels, avg_rates, color=[color_map.get(pop[0], "gray") for pop in group_labels])
     ax_hist.set_ylabel("Avg Firing Rate (Hz)")
-    ax_hist.set_title(f"{area} Average Firing Rate")
+    if model_name:
+        ax_hist.set_title(f"{area} Rate - {model_name}")
+    else:
+        ax_hist.set_title(f"{area} Average Firing Rate")
     ax_hist.set_xticks(range(len(group_labels)))
     ax_hist.set_xticklabels(group_labels, rotation=45)
 
 fig_raster.tight_layout()
 fig_hist.tight_layout()
 
-if model_name:
-    fig_raster.savefig(f"raster/raster_{model_name}.png")
-    fig_hist.savefig(f"hist/hist_{model_name}.png")
-else:
-    fig_raster.savefig(f"raster/raster_{suffix}.png")
-    fig_hist.savefig(f"hist/hist_{suffix}.png")
+fig_raster.savefig(f"raster/raster_{suffix}.png")
+fig_hist.savefig(f"hist/hist_{suffix}.png")

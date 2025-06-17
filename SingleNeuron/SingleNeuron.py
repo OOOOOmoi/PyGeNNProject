@@ -12,12 +12,5 @@ import os
 import json
 from collections import OrderedDict,defaultdict
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-DataPath=os.path.join(current_dir, "custom_Data_Model_3396.json")
-with open(DataPath,'r') as f:
-    ParamOfAll=json.load(f)
-SynapsesWeightMean=OrderedDict()
-SynapsesWeightSd=OrderedDict()
-SynapsesNumber=OrderedDict()
-NeuronNumber=OrderedDict()
-Dist=OrderedDict()
+if __name__ == "__main__":
+    modle=

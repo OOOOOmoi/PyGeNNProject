@@ -12,7 +12,7 @@ import argparse
 from scipy.signal import welch
 from scipy.ndimage import gaussian_filter1d
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from MultiColumn import AreaList, NeuronNumber, input
+from MultiLayer import Layer, NeuronNumber, input, Area, TYPE_NAMES
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--drop", type=int, default=200, help="drop out time")
@@ -146,16 +146,12 @@ color_map = {
     "V": "orange"
 }
 
-popName = ["H1","E23","S23","P23","V23",
-           "E4","S4","P4","V4",
-           "E5","S5","P5","V5",
-           "E6","S6","P6","V6"]
-areaName = AreaList
-
+popName = [type_+l for l in Layer for type_ in TYPE_NAMES]
+areaName = ["V1"]
 file_list = []
 for area in areaName:
     for name in popName:
-        filename = f"/home/yangjinhao/PyGenn/MultiColumn/output/spike/{area}/{area}_{name}_spikes.csv"
+        filename = f"/home/yangjinhao/PyGenn/MultiLayer/output/spike/{area}/{area}_{name}_spikes.csv"
         if os.path.exists(filename):
             file_list.append(filename)
         else:
@@ -324,8 +320,8 @@ for area_idx, (area, group_files) in enumerate(sorted(area_group_files.items()))
     ax_hist.set_xticks(range(len(group_labels)))
     ax_hist.set_xticklabels(group_labels, rotation=45)
 
-fig_raster.tight_layout()
-fig_hist.tight_layout()
+# fig_raster.tight_layout()
+# fig_hist.tight_layout()
 
 fig_raster.savefig(f"raster/raster_{suffix}.png")
 fig_hist.savefig(f"hist/hist_{suffix}.png")

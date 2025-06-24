@@ -11,46 +11,30 @@ import matplotlib.pyplot as plt
 import os
 import json
 from collections import OrderedDict,defaultdict
-from config import Layer, Area
+from config import LayerList, Area, TYPE_NAMES, getWeightMap, plot_effective_weight_heatmap, connection_params
+from nested_dict import nested_dict
 
-Area = Area[0]
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 DataPath=os.path.join(parent_dir, "custom_Data_Model_3396.json")
 with open(DataPath,'r') as f:
     ParamOfAll=json.load(f)
-SynapsesWeightMean=OrderedDict()
-SynapsesWeightSd=OrderedDict()
 SynapsesNumber=OrderedDict()
 NeuronNumber=OrderedDict()
-
+SynapsesWeightMean=OrderedDict()
+SynapsesWeightSd=OrderedDict()
 PopList=ParamOfAll['population_list']
-SynapsesWeightMean=ParamOfAll["synapse_weights_mean"]
-SynapsesWeightSd=ParamOfAll["synapse_weights_sd"]
 SynapsesNumber=ParamOfAll["synapses"]
 NeuronNumber=ParamOfAll["neuron_numbers"]
+# SynapsesWeightMean=ParamOfAll["synapse_weights_mean"]
+# SynapsesWeightSd=ParamOfAll["synapse_weights_sd"]
 
-input = {
-    "H1": 501.0 + -30.0,
-    "V23": 501.0 + -6.0,
-    "S23": 501.0 + -7.0,
-    "E23": 501.0 + 70.0,
-    "P23": 501.0 + -6.0,
-    "V4": 0,
-    "S4": 0,
-    "E4": 501.0 + -0.0,
-    "P4": 0,
-    "V5": 501.0 - 20.0,
-    "S5": 501.0 + 10.0,
-    "E5": 501.0 + 50.0,
-    "P5": 501.0 + -10.0,
-    "V6": 501.0 - 10.0,
-    "S6": 501.0,
-    "E6": 501.0 + 50.0,
-    "P6": 501.0
-}
+input = connection_params['input']
 
-TYPE_NAMES = ["E", "S", "P", "V"]
+DataPath=os.path.join(current_dir, "Wsolution.json")
+with open(DataPath,'r') as f:
+    Wsolution=json.load(f)
+
 # Simulation timestep [ms]
 DT_MS = 0.1
 
@@ -71,8 +55,12 @@ def nested_dict():
 
 def getDelayMap():
     delayMap=nested_dict()
-    for layerTar, layerSrc in product(Layer,Layer):
+    for layerTar, layerSrc in product(LayerList,LayerList):
         for typeTar, typeSrc in product(TYPE_NAMES, TYPE_NAMES):
+            if layerSrc == "1":
+                typeSrc = "H"
+            if layerTar == "1":
+                typeTar = "H"
             srcName = typeSrc + layerSrc
             tarName = typeTar + layerTar
             if typeSrc=="E":
@@ -106,7 +94,7 @@ def get_parser():
 
 def getModelName(args):
     model_name = Area
-    for l in Layer:
+    for l in LayerList:
         model_name += f"_{l}"
     model_name += f"_{args.duration/1000.0:.1f}s"
     if args.stim != 0:
@@ -157,8 +145,24 @@ if __name__ == "__main__":
 
     total_neurons = 0
     neuron_populations = defaultdict(dict)
-    for l in Layer:
+    for l in LayerList:
         for type_ in TYPE_NAMES:
+            if l == "1":
+                type_ = "H"
+                pop = type_+l
+                lif_params = {"C": 0.5, "TauM": 20.0, "Vrest": -70.0, "Vreset": -60.0, "Vthresh" : -50.0,
+                            "Ioffset": input[pop]/1000.0, "TauRefrac": 2.0}
+
+                pop_size = NeuronNumber[Area][pop]
+                neuron_pop = model.add_neuron_population(pop, pop_size, "LIF", lif_params, lif_init)
+
+                # Enable spike recording
+                neuron_pop.spike_recording_enabled = True
+
+                # print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (popName, pop_size, input[pop]/1000.0))
+                total_neurons += pop_size
+                neuron_populations[pop] = neuron_pop
+                break
             pop = type_+l
             lif_params = {"C": 0.5, "TauM": 20.0, "Vrest": -70.0, "Vreset": -60.0, "Vthresh" : -50.0,
                         "Ioffset": input[pop]/1000.0, "TauRefrac": 2.0}
@@ -176,12 +180,19 @@ if __name__ == "__main__":
     total_synapses = 0
     delayMap=getDelayMap()
     synapse_populations = nested_dict()
-    for layerTar, layerSrc in product(Layer,Layer):
+    for layerTar, layerSrc in product(LayerList,LayerList):
         for typeTar, typeSrc in product(TYPE_NAMES, TYPE_NAMES):
+            if layerSrc == "1":
+                typeSrc = "H"
+            if layerTar == "1":
+                typeTar = "H"
             srcName = typeSrc + layerSrc
             tarName = typeTar + layerTar
-            wAve = SynapsesWeightMean[Area][tarName][Area][srcName]/1000.0
-            wSd = SynapsesWeightSd[Area][tarName][Area][srcName]/1000.0
+            SynapsesWeightMean, SynapsesWeightSd = getWeightMap()
+            wAve = SynapsesWeightMean[tarName][srcName]/1000.0
+            wSd = SynapsesWeightSd[tarName][srcName]/1000.0
+            # wAve = Wsolution[srcName] * 1e07
+            # wSd = Wsolution[srcName] * 0.1
             synNum = SynapsesNumber[Area][tarName][Area][srcName]
             synName = srcName+"2"+tarName
             meanDelay=delayMap[tarName][srcName]['ave']
@@ -207,8 +218,7 @@ if __name__ == "__main__":
 
                     # Set max dendritic delay and span type
                     syn_pop.max_dendritic_delay_timesteps = int(round(max_d / DT_MS))
-                    if matrix_type=="PROCEDURAL":
-                        syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
+                    syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
                 else:
                     w_dist = {"mean": wAve, "sd": wSd, "min": float(-np.finfo(np.float32).max), "max": 0.0}
                     static_synapse_init = init_weight_update("StaticPulseDendriticDelay", {},
@@ -227,6 +237,14 @@ if __name__ == "__main__":
                 synapse_populations[tarName][srcName] = None
 
     print("Total neurons=%u, total synapses=%u" % (total_neurons, total_synapses))
+
+    plot_effective_weight_heatmap(
+        SynapsesWeightMean,
+        SynapsesNumber, 
+        NeuronNumber, 
+        areaName=Area,
+        title='Normalized W × In-degree Heatmap'
+    )
 
     print("Building Model")
     build_start_time = perf_counter()

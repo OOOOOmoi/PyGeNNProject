@@ -1,0 +1,1 @@
+python CustomModel.py --duration 1000 --save-spike

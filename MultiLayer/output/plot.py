@@ -12,7 +12,7 @@ import argparse
 from scipy.signal import welch
 from scipy.ndimage import gaussian_filter1d
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from MultiLayer import Layer, NeuronNumber, input, Area, TYPE_NAMES
+from MultiLayer import LayerList, NeuronNumber, input, Area, TYPE_NAMES
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--drop", type=int, default=200, help="drop out time")
@@ -146,7 +146,15 @@ color_map = {
     "V": "orange"
 }
 
-popName = [type_+l for l in Layer for type_ in TYPE_NAMES]
+popName=[]
+for l in LayerList:
+    for type_ in TYPE_NAMES:
+        if l == "1":
+            type_ = "H"
+            popName.append(type_ + l)
+            break
+        popName.append(type_ + l)
+
 areaName = ["V1"]
 file_list = []
 for area in areaName:

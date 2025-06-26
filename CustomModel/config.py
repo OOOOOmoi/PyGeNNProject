@@ -1,8 +1,5 @@
-import json
-import os
-import numpy as np
-from itertools import product
-from nested_dict import nested_dict
+
+vis_content = []
 model_content = {
     'V1': ["4"],
     # 'V2': ["23","4"],
@@ -10,11 +7,16 @@ model_content = {
 
 specific_scale_syn = {
     # Synaptic scaling for specific connections:
-    # Area tarPop srcPop
+    # tarArea tarPop srcArea srcPop
     'V1': {
-        'E23': {
+        'S4': {
             'V1': {
-                'E4': 1,
+                'V4': 1,
+            },
+        },
+        'V4': {
+            'V1': {
+                'E4': 0.8,
             },
         },
     },

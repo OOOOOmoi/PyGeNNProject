@@ -1,4 +1,3 @@
-import pandas as pd
 import matplotlib.pyplot as plt
 import glob
 import os
@@ -8,10 +7,18 @@ import random
 import string
 from collections import defaultdict
 import sys
-import argparse
-from scipy.signal import welch
 from scipy.ndimage import gaussian_filter1d
+from psd import plot_psd
+from rate_curve import plot_firing_rate_curve
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
+
+def smooth_firing_rate(spike_times, total_neurons, sample_bin=1, sigma=3, drop=200):
+    t_min = drop
+    t_max = int(spike_times.max()) + 1
+    time_bins = np.arange(t_min, t_max + 1, sample_bin)
+    binned_rate, _ = np.histogram(spike_times, bins=time_bins)
+    binned_rate = binned_rate * 1000 / total_neurons
+    return gaussian_filter1d(binned_rate.astype(float), sigma=sigma), time_bins
 
 def generate_unique_suffix(length=3):
     date_str = datetime.datetime.now().strftime("%m%d-%H%M")
@@ -24,10 +31,6 @@ def record_spike(neuron_population, spike_data):
             spike_times, spike_ids = p.spike_recording_data[0]
             spike_data[area][pop].append(np.column_stack((spike_times, spike_ids)))
     return spike_data
-
-import os
-import numpy as np
-import glob
 
 def save_spike(spike_data):
     for area, pop_dict in spike_data.items():
@@ -54,7 +57,10 @@ def save_spike(spike_data):
                 header="Times [ms], Neuron ID"
             )
 
-def raster_plot(spike_data, drop=200, neurons_per_group=10, group_spacing=50, model_name=None):
+def visualize(spike_data, drop=200, neurons_per_group=200, group_spacing=50, 
+                model_name=None, NeuronNumber=None, sample_bin=1, vis_content=None):
+    if vis_content is None:
+        vis_content = set()
     color_map = {
         "H": "purple",
         "E": "red",
@@ -62,6 +68,7 @@ def raster_plot(spike_data, drop=200, neurons_per_group=10, group_spacing=50, mo
         "P": "green",
         "V": "orange"
     }
+    suffix = generate_unique_suffix()
     if spike_data==[]:
         print("All spike_data empty, trying to infer from output/spike directory...")
         spike_root = "output/spike"
@@ -104,6 +111,8 @@ def raster_plot(spike_data, drop=200, neurons_per_group=10, group_spacing=50, mo
         y_ticks = []
         y_labels = []
         group_labels = []
+        all_spike = []
+        layer_spikes_dict = defaultdict(list)
         for pop, data_chunks in pop_dict.items():
             all_spikes = np.vstack(data_chunks)
             times = all_spikes[:, 0]
@@ -127,6 +136,29 @@ def raster_plot(spike_data, drop=200, neurons_per_group=10, group_spacing=50, mo
                 duration = times.max() - drop
                 total_neurons = np.unique(ids).size
                 avg_rate = times.size / total_neurons / (duration / 1000) if total_neurons > 0 and duration > 0 else 0.0
+            
+                layer_id = ''.join(filter(str.isdigit, pop))
+                if layer_id:
+                    if layer_id not in layer_spikes_dict:
+                        layer_spikes_dict[layer_id] = {"spike_times": [], "neuron_count": 0}
+                    layer_spikes_dict[layer_id]["spike_times"].extend(times)
+
+                    # 从 NeuronNumber[area][pop] 读取神经元数量并累加
+                    if area in NeuronNumber and pop in NeuronNumber[area]:
+                        layer_spikes_dict[layer_id]["neuron_count"] += NeuronNumber[area][pop]
+                    else:
+                        print(f"Warning: neuron count not found for area {area}, pop {pop}")
+                
+                all_spike.append(times)
+                smoothed_rate, time_bins = smooth_firing_rate(times, total_neurons, sample_bin=sample_bin)
+                if 'pop-psd' in vis_content:
+                    plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
+                            suffix, area, layer=None, pop=pop, drop=drop)
+                if 'pop-rate' in vis_content:
+                    plot_firing_rate_curve(smoothed_rate, time_bins, suffix, model_name, 
+                                        area=area, layer=None, pop=pop)
+                
+
             else:
                 avg_rate = 0.0
             avg_rates.append(avg_rate)
@@ -134,6 +166,31 @@ def raster_plot(spike_data, drop=200, neurons_per_group=10, group_spacing=50, mo
             y_labels.append(pop)
             group_labels.append(pop)
             current_y_offset += neurons_per_group + group_spacing
+        if 'layer-psd' in vis_content or 'layer-rate' in vis_content:
+            for layer, layer_data in layer_spikes_dict.items():
+                spikes = layer_data["spike_times"]
+                neuron_count = layer_data["neuron_count"]
+                if len(spikes) < 10:
+                    continue
+                spike_times = np.array(spikes)
+                smoothed_rate, time_bins = smooth_firing_rate(spike_times, neuron_count, sample_bin=sample_bin)
+                if 'layer-psd' in vis_content:
+                    plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
+                            suffix, area, layer=layer, pop=None, drop=drop)
+                if 'layer-rate' in vis_content:
+                    plot_firing_rate_curve(smoothed_rate, time_bins, suffix, model_name, 
+                                        area=area, layer=layer, pop=None)
+
+        if 'area-psd' in vis_content or 'area-rate' in vis_content:
+            all_spike = np.concatenate(all_spike) if all_spike else np.array([])
+            smoothed_rate, time_bins = smooth_firing_rate(all_spike, NeuronNumber[area]['total'], sample_bin=sample_bin)
+            if 'area-psd' in vis_content:
+                plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
+                        suffix, area, layer=None, pop=None)
+            if 'area-rate' in vis_content:
+                plot_firing_rate_curve(smoothed_rate, time_bins, suffix, model_name, 
+                                    area=area, layer=None, pop=None)
+
         ax_raster=axs_raster[area_idx]
         for times, y_pos, color in raster_point:
             ax_raster.scatter(times, y_pos, s=2, color=color)
@@ -168,6 +225,5 @@ def raster_plot(spike_data, drop=200, neurons_per_group=10, group_spacing=50, mo
     fig_hist.tight_layout()
     os.makedirs("output/raster", exist_ok=True)
     os.makedirs("output/hist", exist_ok=True)
-    suffix = generate_unique_suffix()
     fig_raster.savefig(f"output/raster/raster_{suffix}.png")
     fig_hist.savefig(f"output/hist/hist_{suffix}.png")

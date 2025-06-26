@@ -1,19 +1,18 @@
 import numpy as np
-from scipy.stats import norm
 from argparse import ArgumentParser
 import pygenn
 from pygenn import (GeNNModel, VarLocation, init_postsynaptic,
                     init_sparse_connectivity, init_weight_update, init_var)
-from scipy.stats import norm
+from pygenn.cuda_backend import DeviceSelect
 from time import perf_counter
 from itertools import product
 import os
 import json
 from collections import OrderedDict,defaultdict
 from nested_dict import nested_dict
-from config import collection_params
+from config import collection_params, vis_content
 from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path
-from visual import record_spike, save_spike, raster_plot
+from visual import record_spike, save_spike, visualize
 DT_MS=0.1
 NUM_THREADS_PER_SPIKE=8
 current_dir = os.path.dirname(__file__)
@@ -43,6 +42,7 @@ def get_parser():
     parser.add_argument("--SPARSE", action="store_true", help="Whether use sparse connectivity")
     parser.add_argument("--inSyn", action="store_true", help="Whether record inSyn")
     parser.add_argument("--save-spike", action="store_true", help="whether store spike")
+    parser.add_argument("--device", type=int, default=0, help="Device ID to use for simulation")
     return parser
 
 def getModelName(args):
@@ -56,8 +56,8 @@ def getModelName(args):
                 model_name += f"_{layer}"
     if args.stim:
         model_name += f"_stim"
-        model_name += f"_{args.stim_start/1000:.1f}s"
-        model_name += f"_{args.stim_end/1000:.1f}s"
+        model_name += f"_start{args.stim_start/1000:.1f}s"
+        model_name += f"_end{args.stim_end/1000:.1f}s"
     if args.buffer:
         model_name += f"_buffer{args.buffer_size/1000:.1f}s"
     if args.SPARSE:
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     model_name = getModelName(args)
     with open("output/last_model_name.txt", "w") as f:
         f.write(model_name)
-    model = GeNNModel("float", "GenCODE/" + model_name)
+    model = GeNNModel("float", "GenCODE/" + model_name, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = ~args.inSyn
     model.default_narrow_sparse_ind_enabled = True
@@ -215,7 +215,8 @@ if __name__ == "__main__":
     if args.save_spike:
         save_spike(spike_data)
 
-    raster_plot(spike_data, model_name=model_name, drop=200, neurons_per_group=200, group_spacing=20)
+    visualize(spike_data, model_name=model_name, drop=200, neurons_per_group=200, 
+                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
 
     print("Timing:")
     print("\tBuild:%f" % ((build_end_time - build_start_time) * 1000.0))

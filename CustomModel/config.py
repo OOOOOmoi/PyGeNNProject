@@ -1,31 +1,27 @@
-
 vis_content = []
 model_content = {
     'V1': ["4"],
     # 'V2': ["23","4"],
 }
 
-specific_scale_syn = {
-    # Synaptic scaling for specific connections:
-    # tarArea tarPop srcArea srcPop
-    'V1': {
-        'S4': {
-            'V1': {
-                'V4': 1,
-            },
-        },
-        'V4': {
-            'V1': {
-                'E4': 0.8,
-            },
-        },
-    },
-}
+specific_scale_syn = """
+V1,S4,V1,V4,1.0
+V1,V4,V1,E4,0.8
+V1,P4,V1,E4,1.0
+V1,S4,V1,E4,1.0
+V1,P4,V1,S4,1.0
+V1,V4,V1,S4,1.0
+V1,E4,V1,S4,1.0
+"""
 
 stim = {
     'V1': {
         'E4': 40.,
     }
+}
+
+record_I = {
+    'V1': ["E4", "S4", "P4", "V4"],
 }
 
 connection_params = {
@@ -45,14 +41,14 @@ connection_params = {
         },
     'beta_norm':{"H1" : 3.9,
                  "E23" : 0.71, "S23" : 1., "P23" : 0.48, "V23" :0.9,
-                 "E4" : 1.66/10, "S4" : 0.24, "P4" : 0.8, "V4" : 0.46,
+                 "E4" : 1.66/2, "S4" : 0.24, "P4" : 0.8, "V4" : 0.46,
                  "E5" : 0.95, "S5" : 0.48, "P5" :1.09, "V5" : 1.2,
                  "E6" : 1.12, "S6" : 0.63, "P6" : 0.42, "V6" : 0.5,},
 
     'input':{
         "H1": 501.0 + -30.0,
         "E23": 501.0 + 70.0, "S23": 501.0 + -7.0,  "P23": 501.0 + -6.0,  "V23": 501.0 + -6.0,
-        "E4": 501.0 + 0.0,  "S4": 501.0 + -0.0,   "P4": 501.0 + 0.0,   "V4": 501.0 + 0.0,
+        "E4": 501.0 + 10.0,  "S4": 501.0 + 10.0,   "P4": 501.0 + 10.0,   "V4": 501.0 + 10.0,
         "E5": 501.0 + 50.0,  "S5": 501.0 + 10.0,   "P5": 501.0 + -10.0,  "V5": 501.0 - 20.0,
         "E6": 501.0 + 50.0,  "S6": 501.0 + 0.0,    "P6": 501.0 + 0.0,    "V6": 501.0 - 10.0,
     },
@@ -64,7 +60,7 @@ connection_params = {
     'PSP_e_5_h1': 0.15, #mV
     # synaptic weight  for external input
     'PSP_ext': 0.15, #mV
-
+    
     # relative SD of normally distributed synaptic weights
     'PSC_rel_sd_normal': 0.1,
     # relative SD of lognormally distributed synaptic weights
@@ -75,22 +71,17 @@ connection_params = {
     # factor to scale cortico-cortical inh. weights in relation
     # to exc. weights (chi_I)
     'cc_weights_I_factor': 0.8,
+
+    'rate_ext': 10.,
 }
 
 single_neuron_dict = {
-    # Leak potential of the neurons .
     'E_L': -70.0, # mV
-    # Threshold potential of the neurons .
     'V_th': -50.0, # mV
-    # Membrane potential after a spike .
     'V_reset': -60.0, # mV
-    # Membrane capacitance .
-    'C_m': 500.0, # pF
-    # Membrane time constant .
-    'tau_m': 20.0, # ms
-    # Time constant of postsynaptic currents .
+    'C_m': 1500.0, # pF
+    'tau_m': 60.0, # ms
     'tau_syn': 0.5, # ms
-    # Refractory period of the neurons after a spike .
     't_ref': 2.0 # ms
 }
 

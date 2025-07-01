@@ -1,7 +1,7 @@
 import pandas as pd
 
 # 加载 CSV
-df = pd.read_csv("/home/yangjinhao/PyGenn/MultiLayer/output/spike/V1/V1_S4_spikes.csv", comment='#', header=None, names=["Time", "NeuronID"])
+df = pd.read_csv("/home/yangjinhao/PyGenn/CustomModel/output/spike/V1/V1_S4_spikes.csv", comment='#', header=None, names=["Time", "NeuronID"])
 df = df[df["Time"] >= 200]
 # 总放电次数
 total_spikes = len(df)

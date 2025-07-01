@@ -1,8 +1,23 @@
 from config import collection_params
-import numpy as np
 from itertools import product
 from nested_dict import nested_dict
 from scipy.stats import norm
+
+def parse_specific_scale_syn(config_str):
+    specific_scale_syn = {}
+    lines = config_str.strip().splitlines()
+    
+    for line in lines:
+        tarArea, tarPop, srcArea, srcPop, value = line.strip().split(',')
+        value = float(value)
+
+        # 构建嵌套结构
+        specific_scale_syn.setdefault(tarArea, {})
+        specific_scale_syn[tarArea].setdefault(tarPop, {})
+        specific_scale_syn[tarArea][tarPop].setdefault(srcArea, {})
+        specific_scale_syn[tarArea][tarPop][srcArea][srcPop] = value
+
+    return specific_scale_syn
 
 def has_key_path(d, *keys):
     for k in keys:
@@ -54,7 +69,7 @@ def getWeightMap(structure):
     connection_params=collection_params['connection_params']
     alpha_norm = connection_params['alpha_norm']
     beta_norm = connection_params['beta_norm']
-    specific_scale_syn = collection_params['specific_scale_syn']
+    specific_scale_syn = parse_specific_scale_syn(collection_params['specific_scale_syn'])
     for tarArea, tarList in structure.items():
         for srcArea, srcList in structure.items():
             for tarPop, srcPop in product(tarList, srcList):

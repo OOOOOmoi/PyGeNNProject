@@ -57,7 +57,7 @@ def save_spike(spike_data):
                 header="Times [ms], Neuron ID"
             )
 
-def visualize(spike_data, drop=200, neurons_per_group=200, group_spacing=50, 
+def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_spacing=50, 
                 model_name=None, NeuronNumber=None, sample_bin=1, vis_content=None):
     if vis_content is None:
         vis_content = set()
@@ -120,47 +120,56 @@ def visualize(spike_data, drop=200, neurons_per_group=200, group_spacing=50,
             mask = times >= drop
             times = times[mask]
             ids = ids[mask]
-            if ids.size > 0:
-                unique_neurons = np.unique(ids)
-                selected_neurons = unique_neurons[:neurons_per_group]
-                mask = np.isin(ids, selected_neurons)
-                filtered_times = times[mask]
-                filtered_ids = ids[mask]
-
-                neuron_id_map = {nid: idx + current_y_offset for idx, nid in enumerate(selected_neurons)}
-                y_positions = np.array([neuron_id_map[i] for i in filtered_ids])
-                pop_type = pop[0]
-                color = color_map.get(pop_type, "gray")
-                raster_point.append((filtered_times, y_positions, color))
-
-                duration = times.max() - drop
-                total_neurons = np.unique(ids).size
-                avg_rate = times.size / total_neurons / (duration / 1000) if total_neurons > 0 and duration > 0 else 0.0
+            total_neurons = NeuronNumber[area][pop]
+            selected_neurons = np.random.choice(total_neurons, neurons_per_group, replace=False)
             
-                layer_id = ''.join(filter(str.isdigit, pop))
-                if layer_id:
-                    if layer_id not in layer_spikes_dict:
-                        layer_spikes_dict[layer_id] = {"spike_times": [], "neuron_count": 0}
-                    layer_spikes_dict[layer_id]["spike_times"].extend(times)
+            # 筛选当前 selected 神经元的放电
+            mask = np.isin(ids, selected_neurons)
+            filtered_times = times[mask]
+            filtered_ids = ids[mask]
 
-                    # 从 NeuronNumber[area][pop] 读取神经元数量并累加
-                    if area in NeuronNumber and pop in NeuronNumber[area]:
-                        layer_spikes_dict[layer_id]["neuron_count"] += NeuronNumber[area][pop]
-                    else:
-                        print(f"Warning: neuron count not found for area {area}, pop {pop}")
-                
-                all_spike.append(times)
-                smoothed_rate, time_bins = smooth_firing_rate(times, total_neurons, sample_bin=sample_bin)
-                if 'pop-psd' in vis_content:
-                    plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
-                            suffix, area, layer=None, pop=pop, drop=drop)
-                if 'pop-rate' in vis_content:
-                    plot_firing_rate_curve(smoothed_rate, time_bins, suffix, model_name, 
-                                        area=area, layer=None, pop=pop)
-                
-
-            else:
+            if filtered_ids.size == 0:
                 avg_rate = 0.0
+                avg_rates.append(avg_rate)
+                y_ticks.append(current_y_offset + neurons_per_group // 2)
+                y_labels.append(pop)
+                group_labels.append(pop)
+                current_y_offset += neurons_per_group + group_spacing
+                continue
+
+            # 构造 raster y 位置（哪怕有些 neuron 没放电也不会出错）
+            neuron_id_map = {nid: idx + current_y_offset for idx, nid in enumerate(selected_neurons)}
+            y_positions = np.array([neuron_id_map[i] for i in filtered_ids])
+
+            pop_type = pop[0]
+            color = color_map.get(pop_type, "gray")
+            raster_point.append((filtered_times, y_positions, color))
+
+            duration_ms = duration - drop
+            n_selected = len(selected_neurons)
+            avg_rate = len(times) / total_neurons / (duration_ms / 1000) if n_selected > 0 and duration_ms > 0 else 0.0
+
+
+            layer_id = ''.join(filter(str.isdigit, pop))
+            if layer_id:
+                if layer_id not in layer_spikes_dict:
+                    layer_spikes_dict[layer_id] = {"spike_times": [], "neuron_count": 0}
+                layer_spikes_dict[layer_id]["spike_times"].extend(filtered_times)
+
+                # 从 NeuronNumber[area][pop] 读取神经元数量并累加
+                if area in NeuronNumber and pop in NeuronNumber[area]:
+                    layer_spikes_dict[layer_id]["neuron_count"] += NeuronNumber[area][pop]
+                else:
+                    print(f"Warning: neuron count not found for area {area}, pop {pop}")
+            
+            all_spike.append(filtered_times)
+            smoothed_rate, time_bins = smooth_firing_rate(filtered_times, total_neurons, sample_bin=sample_bin)
+            if 'pop-psd' in vis_content:
+                plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
+                        suffix, area, layer=None, pop=pop, drop=drop)
+            if 'pop-rate' in vis_content:
+                plot_firing_rate_curve(smoothed_rate, time_bins, suffix, model_name, 
+                                    area=area, layer=None, pop=pop)
             avg_rates.append(avg_rate)
             y_ticks.append(current_y_offset + neurons_per_group // 2)
             y_labels.append(pop)

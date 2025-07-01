@@ -1,5 +1,5 @@
 import numpy as np
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 import pygenn
 from pygenn import (GeNNModel, VarLocation, init_postsynaptic,
                     init_sparse_connectivity, init_weight_update, init_var)
@@ -8,11 +8,14 @@ from time import perf_counter
 from itertools import product
 import os
 import json
-from collections import OrderedDict,defaultdict
+import random
+import string
+from collections import defaultdict
 from nested_dict import nested_dict
-from config import collection_params, vis_content
+from config import collection_params, vis_content, record_I
 from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path
 from visual import record_spike, save_spike, visualize
+from connectom import connectom
 DT_MS=0.1
 NUM_THREADS_PER_SPIKE=8
 current_dir = os.path.dirname(__file__)
@@ -45,6 +48,26 @@ def get_parser():
     parser.add_argument("--device", type=int, default=0, help="Device ID to use for simulation")
     return parser
 
+def parse_all_args():
+    parser = get_parser()
+    args, unknown = parser.parse_known_args()
+
+    # 手动解析未知参数（--key val 或 --flag）
+    extra_args = {}
+    key = None
+    for item in unknown:
+        if item.startswith('--'):
+            key = item.lstrip('--').replace('-', '_')
+            extra_args[key] = True  # 默认是布尔开关
+        elif key is not None:
+            extra_args[key] = item  # 赋值
+            key = None
+
+    # 合并已知参数与未知参数
+    args_dict = vars(args)
+    args_dict.update(extra_args)
+    return Namespace(**args_dict)
+
 def getModelName(args):
     model_name = f"{args.duration/1000.0:.1f}s"
     model_content = collection_params['model_content']
@@ -66,13 +89,15 @@ def getModelName(args):
 
 
 if __name__ == "__main__":
-    args = get_parser().parse_args()
+    args = parse_all_args()
     model_name = getModelName(args)
     with open("output/last_model_name.txt", "w") as f:
         f.write(model_name)
-    model = GeNNModel("float", "GenCODE/" + model_name, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
+    rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
+    rand_str = ''
+    model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
-    model.fuse_postsynaptic_models = ~args.inSyn
+    model.fuse_postsynaptic_models = not args.inSyn
     model.default_narrow_sparse_ind_enabled = True
     model.timing_enabled = True
     model.default_var_location = VarLocation.HOST_DEVICE
@@ -91,7 +116,9 @@ if __name__ == "__main__":
         """
     )
     NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap = prepare()
+    
     struct=get_struct()
+    connectom(SynapsesNumber, SynapsesWeightMean, NeuronNumber, struct)
     neuronParam=collection_params['single_neuron_dict']
     input=collection_params['connection_params']['input']
     stim_info=collection_params['stim']
@@ -162,6 +189,7 @@ if __name__ == "__main__":
                     syn_pop.max_dendritic_delay_timesteps = int(round(max_d / DT_MS))
                     if matrix_type=="PROCEDURAL":
                         syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
+                    synapse_populations[areaTar][popTar][areaSrc][popSrc] = syn_pop
                 else:
                     synapse_populations[areaTar][popTar][areaSrc][popSrc] = None
     print("Total neurons=%u, total synapses=%u" % (total_neurons, total_synapses))
@@ -197,6 +225,19 @@ if __name__ == "__main__":
             if not model.timestep % args.buffer_size:
                 model.pull_recording_buffers_from_device()
                 spike_data=record_spike(neuron_populations, spike_data)
+        
+        if args.inSyn:
+            for tar_area, tar_pop_list in record_I.items():
+                for tar_pop in tar_pop_list:
+                    for src_pop in PopList:
+                        if synapse_populations["V1"][tar_pop]["V1"][src_pop] is not None:
+                            syn_pop=synapse_populations["V1"][tar_pop]["V1"][src_pop]
+                            syn_pop.out_post.pull_from_device()
+                            out_post_array = syn_pop.out_post.view[:,:100]
+                            if isinstance(out_post_history["V1"][tar_pop]["V1"][src_pop], dict):
+                                out_post_history["V1"][tar_pop]["V1"][src_pop] = []
+                            out_post_history["V1"][tar_pop]["V1"][src_pop].append(out_post_array.copy())
+
         if (model.timestep % ten_percent_timestep) == 0:
             flag += 1
             print("%u%%" % (flag * 10))
@@ -215,8 +256,27 @@ if __name__ == "__main__":
     if args.save_spike:
         save_spike(spike_data)
 
-    visualize(spike_data, model_name=model_name, drop=200, neurons_per_group=200, 
+    visualize(spike_data, duration=args.duration, model_name=model_name, drop=200, neurons_per_group=200, 
                 group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+
+    if args.inSyn:
+        for tar_area in out_post_history:
+            for tar_pop in out_post_history[tar_area]:
+                for src_area in out_post_history[tar_area][tar_pop]:
+                    for src_pop in out_post_history[tar_area][tar_pop][src_area]:
+                        data = out_post_history[tar_area][tar_pop][src_area][src_pop]
+
+                        if not data:
+                            continue  # 空数据跳过
+
+                        all_data = np.vstack(data)  # 合并所有时间片
+                        folder_path = os.path.join("output", "inSyn", tar_area, tar_pop)
+                        os.makedirs(folder_path, exist_ok=True)
+
+                        filename = f"{src_pop}_2_{tar_pop}.csv"
+                        file_path = os.path.join(folder_path, filename)
+
+                        np.savetxt(file_path, all_data, delimiter=",", fmt="%.3f")
 
     print("Timing:")
     print("\tBuild:%f" % ((build_end_time - build_start_time) * 1000.0))

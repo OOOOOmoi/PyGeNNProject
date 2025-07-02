@@ -10,6 +10,7 @@ import sys
 from scipy.ndimage import gaussian_filter1d
 from psd import plot_psd
 from rate_curve import plot_firing_rate_curve
+from config import connection_params
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
 def smooth_firing_rate(spike_times, total_neurons, sample_bin=1, sigma=3, drop=200):
@@ -24,38 +25,6 @@ def generate_unique_suffix(length=3):
     date_str = datetime.datetime.now().strftime("%m%d-%H%M")
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
     return f"{date_str}_{rand_str}"
-
-def record_spike(neuron_population, spike_data):
-    for area, pop_dict in neuron_population.items():
-        for pop, p in pop_dict.items():
-            spike_times, spike_ids = p.spike_recording_data[0]
-            spike_data[area][pop].append(np.column_stack((spike_times, spike_ids)))
-    return spike_data
-
-def save_spike(spike_data):
-    for area, pop_dict in spike_data.items():
-        output_dir = f"output/spike/{area}"
-        os.makedirs(output_dir, exist_ok=True)
-
-        # 清除该区域下所有旧的 .csv 文件
-        for old_file in glob.glob(f"{output_dir}/*.csv"):
-            try:
-                os.remove(old_file)
-            except Exception as e:
-                print(f"Warning: Failed to delete {old_file}: {e}")
-
-        for pop, data_chunks in pop_dict.items():
-            if len(data_chunks) == 0:
-                continue  # 避免没有数据时报错
-            all_data = np.vstack(data_chunks)
-            save_path = f"{output_dir}/{area}_{pop}_spikes.csv"
-            np.savetxt(
-                save_path,
-                all_data,
-                delimiter=",",
-                fmt=("%f", "%d"),
-                header="Times [ms], Neuron ID"
-            )
 
 def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_spacing=50, 
                 model_name=None, NeuronNumber=None, sample_bin=1, vis_content=None):
@@ -104,6 +73,8 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
     if len(spike_data) == 1:
         axs_hist = [axs_hist]
     
+    input=connection_params['input']
+
     for area_idx, (area, pop_dict) in enumerate(spike_data.items()):
         current_y_offset = 0
         raster_point=[]
@@ -132,7 +103,7 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
                 avg_rate = 0.0
                 avg_rates.append(avg_rate)
                 y_ticks.append(current_y_offset + neurons_per_group // 2)
-                y_labels.append(pop)
+                y_labels.append(pop+"_"+str(input[pop]))
                 group_labels.append(pop)
                 current_y_offset += neurons_per_group + group_spacing
                 continue
@@ -172,7 +143,7 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
                                     area=area, layer=None, pop=pop)
             avg_rates.append(avg_rate)
             y_ticks.append(current_y_offset + neurons_per_group // 2)
-            y_labels.append(pop)
+            y_labels.append(pop+"_"+str(input[pop]))
             group_labels.append(pop)
             current_y_offset += neurons_per_group + group_spacing
         if 'layer-psd' in vis_content or 'layer-rate' in vis_content:

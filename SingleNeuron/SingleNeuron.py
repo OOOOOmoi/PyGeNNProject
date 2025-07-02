@@ -10,15 +10,15 @@ single_neuron_dict = {
     # Membrane potential after a spike .
     'V_reset': -60.0, # mV
     # Membrane capacitance .
-    'C_m': 1500.0, # pF
+    'C_m': 1000.0, # pF
     # Membrane time constant .
-    'tau_m': 60.0, # ms
+    'tau_m': 40.0, # ms
     # Time constant of postsynaptic currents .
     'tau_syn': 0.5, # ms
     # Refractory period of the neurons after a spike .
     't_ref': 2.0, # ms
 
-    'input': 0.501, # pA
+    'input': 0.55, # pA
 }
 if __name__ == "__main__":
     duration = 1000.0  # ms

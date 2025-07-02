@@ -10,12 +10,14 @@ import os
 import json
 import random
 import string
+import matplotlib.pyplot as plt
 from collections import defaultdict
 from nested_dict import nested_dict
 from config import collection_params, vis_content, record_I
 from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path
-from visual import record_spike, save_spike, visualize
+from visual import visualize
 from connectom import connectom
+from record import record_spike, save_spike, record_inSyn, save_inSyn
 DT_MS=0.1
 NUM_THREADS_PER_SPIKE=8
 current_dir = os.path.dirname(__file__)
@@ -46,6 +48,7 @@ def get_parser():
     parser.add_argument("--inSyn", action="store_true", help="Whether record inSyn")
     parser.add_argument("--save-spike", action="store_true", help="whether store spike")
     parser.add_argument("--device", type=int, default=0, help="Device ID to use for simulation")
+    parser.add_argument("--possion", action="store_true", help="Whether use possion input")
     return parser
 
 def parse_all_args():
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     with open("output/last_model_name.txt", "w") as f:
         f.write(model_name)
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
-    rand_str = ''
+    # rand_str = ''
     model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
@@ -125,9 +128,14 @@ if __name__ == "__main__":
     # print("Creating neuron populations:")
     total_neurons = 0
     neuron_populations = defaultdict(dict)
+    poisson_init = {"current": 0.0}
     for area, PopList in struct.items():
         for pop in PopList:
             popName = area+pop
+            if pop == "S4" and ("free_scale" in args):
+                input[pop] -= float(args.free_scale)
+            if pop == "V4" and ("free_scale" in args):
+                input[pop] += float(args.free_scale)
             lif_params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
                           "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
                           "Vthresh" : neuronParam['V_th'], "Ioffset": input[pop]/1000.0,
@@ -144,6 +152,11 @@ if __name__ == "__main__":
                         "magnitude": s[0]/1000.0},
             )
 
+            if args.possion:
+                ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1000.0
+                rate = 10 * SynapsesNumber[area][pop]['external']['external']
+                poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
+                model.add_current_source(pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
             # Enable spike recording
             neuron_pop.spike_recording_enabled = True
 
@@ -219,28 +232,26 @@ if __name__ == "__main__":
     }
     flag=0
     out_post_history = nested_dict()
+    # V=[]
     while model.t < duration:
         model.step_time()
+        # pop=neuron_populations["V1"]["S4"]
+        # pop.vars["V"].pull_from_device()
+        # v=pop.vars["V"].current_values
+        # V.append(v[0])
         if args.buffer:
             if not model.timestep % args.buffer_size:
                 model.pull_recording_buffers_from_device()
-                spike_data=record_spike(neuron_populations, spike_data)
-        
+                record_spike(neuron_populations, spike_data)
         if args.inSyn:
-            for tar_area, tar_pop_list in record_I.items():
-                for tar_pop in tar_pop_list:
-                    for src_pop in PopList:
-                        if synapse_populations["V1"][tar_pop]["V1"][src_pop] is not None:
-                            syn_pop=synapse_populations["V1"][tar_pop]["V1"][src_pop]
-                            syn_pop.out_post.pull_from_device()
-                            out_post_array = syn_pop.out_post.view[:,:100]
-                            if isinstance(out_post_history["V1"][tar_pop]["V1"][src_pop], dict):
-                                out_post_history["V1"][tar_pop]["V1"][src_pop] = []
-                            out_post_history["V1"][tar_pop]["V1"][src_pop].append(out_post_array.copy())
-
+            record_inSyn(out_post_history, record_I, synapse_populations, PopList)
         if (model.timestep % ten_percent_timestep) == 0:
             flag += 1
             print("%u%%" % (flag * 10))
+
+    # plt.figure(figsize=(8, 5))
+    # plt.plot(V)
+    # plt.savefig("single_neuron_v.png")
 
     sim_end_time = perf_counter()
 
@@ -249,34 +260,16 @@ if __name__ == "__main__":
     '''
     if not args.buffer:
         model.pull_recording_buffers_from_device()
-        for area, pop_dict in neuron_populations.items():
-            for pop, p in pop_dict.items():
-                spike_data=record_spike(neuron_populations, spike_data)
+        record_spike(neuron_populations, spike_data)
     # Merge data
     if args.save_spike:
         save_spike(spike_data)
 
-    visualize(spike_data, duration=args.duration, model_name=model_name, drop=200, neurons_per_group=200, 
+    visualize(spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
                 group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
 
     if args.inSyn:
-        for tar_area in out_post_history:
-            for tar_pop in out_post_history[tar_area]:
-                for src_area in out_post_history[tar_area][tar_pop]:
-                    for src_pop in out_post_history[tar_area][tar_pop][src_area]:
-                        data = out_post_history[tar_area][tar_pop][src_area][src_pop]
-
-                        if not data:
-                            continue  # 空数据跳过
-
-                        all_data = np.vstack(data)  # 合并所有时间片
-                        folder_path = os.path.join("output", "inSyn", tar_area, tar_pop)
-                        os.makedirs(folder_path, exist_ok=True)
-
-                        filename = f"{src_pop}_2_{tar_pop}.csv"
-                        file_path = os.path.join(folder_path, filename)
-
-                        np.savetxt(file_path, all_data, delimiter=",", fmt="%.3f")
+        save_inSyn(out_post_history)
 
     print("Timing:")
     print("\tBuild:%f" % ((build_end_time - build_start_time) * 1000.0))

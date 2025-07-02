@@ -53,17 +53,19 @@ def get_struct():
     return model_structure
 
 def get_weight_factor():
-    single_neuron_dict=collection_params['single_neuron_dict']
-    C_m_E = single_neuron_dict['C_m']
-    tau_m_E = single_neuron_dict['tau_m']
-    tau_syn_E = single_neuron_dict['tau_syn']
-    PSC_over_PSP = ((C_m_E**(-1) * tau_m_E * tau_syn_E / (tau_syn_E - tau_m_E) *
-                    ((tau_m_E / tau_syn_E) ** (- tau_m_E / (tau_m_E - tau_syn_E)) -
-                    (tau_m_E / tau_syn_E) ** (- tau_syn_E / (tau_m_E - tau_syn_E)))) ** (-1))
+    single_neuron_dict=collection_params['single_neuron_dict_of_weight']
+    PSC_over_PSP = nested_dict()
+    for type_, params in single_neuron_dict.items():
+        C_m = params['C_m']
+        tau_m = params['tau_m']
+        tau_syn = params['tau_syn']
+        PSC_over_PSP[type_] = ((C_m**(-1) * tau_m * tau_syn / (tau_syn - tau_m) *
+                        ((tau_m / tau_syn) ** (- tau_m / (tau_m - tau_syn)) -
+                        (tau_m / tau_syn) ** (- tau_syn / (tau_m - tau_syn)))) ** (-1))
     return PSC_over_PSP
 
 def getWeightMap(structure):
-    PSC_over_PSP= get_weight_factor()
+    PSC_over_PSP_= get_weight_factor()
     SynapsesWeightMean=nested_dict()
     SynapsesWeightSd=nested_dict()
     connection_params=collection_params['connection_params']
@@ -73,6 +75,8 @@ def getWeightMap(structure):
     for tarArea, tarList in structure.items():
         for srcArea, srcList in structure.items():
             for tarPop, srcPop in product(tarList, srcList):
+                type_ = srcPop[0]
+                PSC_over_PSP = PSC_over_PSP_[type_]
                 if tarArea == srcArea:
                     if srcPop[0] == 'E':
                         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * alpha_norm[srcPop]*beta_norm[tarPop] * connection_params['PSP_e']
@@ -100,6 +104,7 @@ def getWeightMap(structure):
                 if has_key_path(specific_scale_syn, tarArea, tarPop, srcArea, srcPop):
                     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= specific_scale_syn[tarArea][tarPop][srcArea][srcPop]
                     SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] *= specific_scale_syn[tarArea][tarPop][srcArea][srcPop]
+                SynapsesWeightMean[tarArea][tarPop]['external']['external'] = connection_params['PSP_ext'] * PSC_over_PSP_['E']
     return SynapsesWeightMean.to_dict(), SynapsesWeightSd.to_dict()
 
 def getDelayMap(structure, Dist):

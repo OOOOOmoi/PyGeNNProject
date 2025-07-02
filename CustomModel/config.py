@@ -6,7 +6,7 @@ model_content = {
 
 specific_scale_syn = """
 V1,S4,V1,V4,1.0
-V1,V4,V1,E4,0.8
+V1,V4,V1,E4,1.0
 V1,P4,V1,E4,1.0
 V1,S4,V1,E4,1.0
 V1,P4,V1,S4,1.0
@@ -48,7 +48,7 @@ connection_params = {
     'input':{
         "H1": 501.0 + -30.0,
         "E23": 501.0 + 70.0, "S23": 501.0 + -7.0,  "P23": 501.0 + -6.0,  "V23": 501.0 + -6.0,
-        "E4": 501.0 + 10.0,  "S4": 501.0 + 10.0,   "P4": 501.0 + 10.0,   "V4": 501.0 + 10.0,
+        "E4": 501.0 + 0.0,  "S4": 501.0 + 0.0,   "P4": 501.0 + 0.0,   "V4": 501.0 + 0.0,
         "E5": 501.0 + 50.0,  "S5": 501.0 + 10.0,   "P5": 501.0 + -10.0,  "V5": 501.0 - 20.0,
         "E6": 501.0 + 50.0,  "S6": 501.0 + 0.0,    "P6": 501.0 + 0.0,    "V6": 501.0 - 10.0,
     },
@@ -79,21 +79,105 @@ single_neuron_dict = {
     'E_L': -70.0, # mV
     'V_th': -50.0, # mV
     'V_reset': -60.0, # mV
-    'C_m': 1500.0, # pF
-    'tau_m': 60.0, # ms
+    'C_m': 1000.0, # pF
+    'tau_m': 40.0, # ms
     'tau_syn': 0.5, # ms
     't_ref': 2.0 # ms
 }
+
+
+# dictionary defining single-cell parameters
+single_neuron_dict_of_weight = {
+    "E":{
+    # Leak potential of the neurons .
+    'E_L': -70.0, # mV
+    # Threshold potential of the neurons .
+    'V_th': -50.0, # mV
+    # Membrane potential after a spike .
+    'V_reset': -60.0, # mV
+    # Membrane capacitance .
+    'C_m': 500.0, # pF
+    # Membrane time constant .
+    'tau_m': 20.0, # ms
+    # Time constant of postsynaptic currents .
+    'tau_syn': 0.5, # ms
+    # Refractory period of the neurons after a spike .
+    't_ref': 2.0 # ms
+    },
+    "S":{
+    # Leak potential of the neurons .
+    'E_L': -76.0, # mV
+    # Threshold potential of the neurons .
+    'V_th': -50.0, # mV
+    # Membrane potential after a spike .
+    'V_reset': -60.0, # mV
+    # Membrane capacitance .
+    'C_m': 800.0, # pF
+    # Membrane time constant .
+    'tau_m': 50.0, # ms
+    # Time constant of postsynaptic currents .
+    'tau_syn': 0.5, # ms
+    # Refractory period of the neurons after a spike .
+    't_ref': 1.0 # ms
+    },
+    "P":{
+    # Leak potential of the neurons .
+    'E_L': -86.0, # mV
+    # Threshold potential of the neurons .
+    'V_th': -50.0, # mV
+    # Membrane potential after a spike .
+    'V_reset': -60.0, # mV
+    # Membrane capacitance .
+    'C_m': 200.0, # pF
+    # Membrane time constant .
+    'tau_m': 10.0, # ms
+    # Time constant of postsynaptic currents .
+    'tau_syn': 0.5, # ms
+    # Refractory period of the neurons after a spike .
+    't_ref': 1.0 # ms
+    },
+    'V':{
+    # Leak potential of the neurons .
+    'E_L': -70.0, # mV
+    # Threshold potential of the neurons .
+    'V_th': -50.0, # mV
+    # Membrane potential after a spike .
+    'V_reset': -65.0, # mV
+    # Membrane capacitance .
+    'C_m': 100.0, # pF
+    # Membrane time constant .
+    'tau_m': 20.0, # ms
+    # Time constant of postsynaptic currents .
+    'tau_syn': 0.5, # ms
+    # Refractory period of the neurons after a spike .
+    't_ref': 1.0 # ms
+    },
+    'H':{
+    # Leak potential of the neurons .
+    'E_L': -70.0, # mV
+    # Threshold potential of the neurons .
+    'V_th': -50.0, # mV
+    # Membrane potential after a spike .
+    'V_reset': -65.0, # mV
+    # Membrane capacitance .
+    'C_m': 100.0, # pF
+    # Membrane time constant .
+    'tau_m': 20.0, # ms
+    # Time constant of postsynaptic currents .
+    'tau_syn': 0.5, # ms
+    # Refractory period of the neurons after a spike .
+    't_ref': 1.0 # ms
+    }
+    } 
+
+
 
 collection_params = {
     'model_content': model_content,
     'connection_params': connection_params,
     'single_neuron_dict': single_neuron_dict,
+    'single_neuron_dict_of_weight': single_neuron_dict_of_weight,
     'specific_scale_syn': specific_scale_syn,
     'stim': stim,
     'type_list': ["E", "S", "P", "V", "H"],
 }
-
-
-
-

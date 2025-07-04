@@ -41,14 +41,14 @@ connection_params = {
         },
     'beta_norm':{"H1" : 3.9,
                  "E23" : 0.71, "S23" : 1., "P23" : 0.48, "V23" :0.9,
-                 "E4" : 1.66/2, "S4" : 0.24, "P4" : 0.8, "V4" : 0.46,
+                 "E4" : 1.66/4, "S4" : 0.24, "P4" : 0.8, "V4" : 0.46,
                  "E5" : 0.95, "S5" : 0.48, "P5" :1.09, "V5" : 1.2,
                  "E6" : 1.12, "S6" : 0.63, "P6" : 0.42, "V6" : 0.5,},
 
     'input':{
         "H1": 501.0 + -30.0,
         "E23": 501.0 + 70.0, "S23": 501.0 + -7.0,  "P23": 501.0 + -6.0,  "V23": 501.0 + -6.0,
-        "E4": 501.0 + 0.0,  "S4": 501.0 + 0.0,   "P4": 501.0 + 0.0,   "V4": 501.0 + 0.0,
+        "E4": 420.0 + 30.0,  "S4": 380.0 + 0.0,   "P4": 0.0 + 0.0,   "V4": 420.0 + 0.0,
         "E5": 501.0 + 50.0,  "S5": 501.0 + 10.0,   "P5": 501.0 + -10.0,  "V5": 501.0 - 20.0,
         "E6": 501.0 + 50.0,  "S6": 501.0 + 0.0,    "P6": 501.0 + 0.0,    "V6": 501.0 - 10.0,
     },
@@ -85,6 +85,24 @@ single_neuron_dict = {
     't_ref': 2.0 # ms
 }
 
+expLIF_dict = {
+    # Leak potential of the neurons .
+    'E_L': -70.0, # mV
+    # Threshold potential of the neurons .
+    'V_th': 20.0, # mV
+    # Membrane potential after a spike .
+    'V_reset': -60.0, # mV
+    # Membrane capacitance .
+    'C_m': 500.0, # pF
+    # Membrane time constant .
+    'tau_m': 20.0, # ms
+    # Time constant of postsynaptic currents .
+    'tau_syn': 0.5, # ms
+    # Refractory period of the neurons after a spike .
+    't_ref': 2.0, # ms
+    'DeltaT': 5.0, # mV
+    'VT': -50.0, # mV
+}
 
 # dictionary defining single-cell parameters
 single_neuron_dict_of_weight = {
@@ -180,4 +198,5 @@ collection_params = {
     'specific_scale_syn': specific_scale_syn,
     'stim': stim,
     'type_list': ["E", "S", "P", "V", "H"],
+    'expLIF_dict': expLIF_dict,
 }

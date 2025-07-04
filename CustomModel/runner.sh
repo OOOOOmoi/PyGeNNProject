@@ -1,1 +1,1 @@
-python CustomModel.py --duration 1000 --device 0
+python CustomModel.py --duration 1000 --device 1 --expLIF --poisson

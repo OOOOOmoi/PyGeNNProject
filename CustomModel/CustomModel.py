@@ -18,6 +18,7 @@ from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path
 from visual import visualize
 from connectom import connectom
 from record import record_spike, save_spike, record_inSyn, save_inSyn
+from expLIF import expLIF_model
 DT_MS=0.1
 NUM_THREADS_PER_SPIKE=8
 current_dir = os.path.dirname(__file__)
@@ -48,7 +49,7 @@ def get_parser():
     parser.add_argument("--inSyn", action="store_true", help="Whether record inSyn")
     parser.add_argument("--save-spike", action="store_true", help="whether store spike")
     parser.add_argument("--device", type=int, default=0, help="Device ID to use for simulation")
-    parser.add_argument("--possion", action="store_true", help="Whether use possion input")
+    parser.add_argument("--poisson", action="store_true", help="Whether use poisson input")
     return parser
 
 def parse_all_args():
@@ -105,7 +106,7 @@ if __name__ == "__main__":
     model.timing_enabled = True
     model.default_var_location = VarLocation.HOST_DEVICE
     model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
-    lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": 2.0}
+    
     exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 0.5})
 
     trigger_pulse_model = pygenn.create_current_source_model(
@@ -122,13 +123,27 @@ if __name__ == "__main__":
     
     struct=get_struct()
     connectom(SynapsesNumber, SynapsesWeightMean, NeuronNumber, struct)
-    neuronParam=collection_params['single_neuron_dict']
+    if "expLIF" in args:
+        neuronParam = collection_params['expLIF_dict']
+        params = {
+            "C": neuronParam['C_m'] / 1000, "TauM": neuronParam['tau_m'],
+            "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
+            "Vthresh": neuronParam['V_th'], "Ioffset": 0, "TauRefrac": neuronParam['t_ref'],
+            "DeltaT": neuronParam['DeltaT'], "VT": neuronParam['VT']
+        }
+    else:
+        neuronParam=collection_params['single_neuron_dict']
+        params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
+                    "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
+                    "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
+                    "TauRefrac": neuronParam['t_ref']}
     input=collection_params['connection_params']['input']
     stim_info=collection_params['stim']
     # print("Creating neuron populations:")
     total_neurons = 0
     neuron_populations = defaultdict(dict)
     poisson_init = {"current": 0.0}
+    lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": params['TauRefrac']}
     for area, PopList in struct.items():
         for pop in PopList:
             popName = area+pop
@@ -136,13 +151,15 @@ if __name__ == "__main__":
                 input[pop] -= float(args.free_scale)
             if pop == "V4" and ("free_scale" in args):
                 input[pop] += float(args.free_scale)
-            lif_params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
-                          "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
-                          "Vthresh" : neuronParam['V_th'], "Ioffset": input[pop]/1000.0,
-                          "TauRefrac": neuronParam['t_ref']}
-
+            if args.poisson:
+                params["Ioffset"] = 0.0
+            else:
+                params["Ioffset"] = input[pop] / 1000.0
             pop_size = NeuronNumber[area][pop]
-            neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", lif_params, lif_init)
+            if "expLIF" in args:
+                neuron_pop = model.add_neuron_population(popName, pop_size, expLIF_model, params, lif_init)
+            else:
+                neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", params, lif_init)
             if args.stim and has_key_path(stim_info, area, pop):
                 s=stim_info[area][pop]
                 model.add_current_source(pop + '_pulse',
@@ -152,9 +169,9 @@ if __name__ == "__main__":
                         "magnitude": s[0]/1000.0},
             )
 
-            if args.possion:
-                ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1000.0
-                rate = 10 * SynapsesNumber[area][pop]['external']['external']
+            if args.poisson:
+                ext_weight = SynapsesWeightMean[area][pop]['external']['external'] * 100
+                rate = 10 * SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop]
                 poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                 model.add_current_source(pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
             # Enable spike recording

@@ -42,7 +42,7 @@ single_neuron_dict = {
     'tau_syn': 0.5, # ms
     # Refractory period of the neurons after a spike .
     't_ref': 2.0, # ms
-    'input': 380.0, # pA
+    'input': 420.0, # pA
     'DeltaT': 5.0, # mV
     'VT': -50.0, # mV
 }
@@ -78,6 +78,11 @@ if __name__ == "__main__":
         v=pop.vars["V"].current_values
         V.append(v[0])
 
-    plt.figure(figsize=(8, 5))
-    plt.plot(V)
-    plt.savefig("single_neuron_v.png")
+fig, ax = plt.subplots(figsize=(8, 3))
+ax.set_xlabel("Time step (0.1 ms)")
+ax.set_ylabel("Membrane potential (mV)")
+ax.plot(V, color='blue')  # 用 ax.plot 而不是 plt.plot
+
+plt.tight_layout()
+plt.savefig("single_neuron_v.png")
+plt.close()

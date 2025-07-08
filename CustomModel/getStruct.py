@@ -64,7 +64,7 @@ def get_weight_factor():
                         (tau_m / tau_syn) ** (- tau_syn / (tau_m - tau_syn)))) ** (-1))
     return PSC_over_PSP
 
-def getWeightMap(structure):
+def getWeightMap(structure, args):
     PSC_over_PSP_= get_weight_factor()
     SynapsesWeightMean=nested_dict()
     SynapsesWeightSd=nested_dict()
@@ -72,11 +72,13 @@ def getWeightMap(structure):
     alpha_norm = connection_params['alpha_norm']
     beta_norm = connection_params['beta_norm']
     specific_scale_syn = parse_specific_scale_syn(collection_params['specific_scale_syn'])
+    if "free_scale_syn" in args:
+        specific_scale_syn ['V1']['S4']['V1']['E4'] += float(args.free_scale_syn)
     for tarArea, tarList in structure.items():
         for srcArea, srcList in structure.items():
             for tarPop, srcPop in product(tarList, srcList):
                 type_ = srcPop[0]
-                PSC_over_PSP = PSC_over_PSP_[type_]
+                PSC_over_PSP = PSC_over_PSP_[type_] / 2
                 if tarArea == srcArea:
                     if srcPop[0] == 'E':
                         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * alpha_norm[srcPop]*beta_norm[tarPop] * connection_params['PSP_e']

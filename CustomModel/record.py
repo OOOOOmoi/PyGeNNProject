@@ -40,7 +40,7 @@ def record_inSyn(out_post_history, record_I, synapse_populations, PopList):
                 if synapse_populations[tar_area][tar_pop][tar_area][src_pop] is not None:
                     syn_pop=synapse_populations[tar_area][tar_pop][tar_area][src_pop]
                     syn_pop.out_post.pull_from_device()
-                    out_post_array = syn_pop.out_post.view[:,:100]
+                    out_post_array = syn_pop.out_post.view[:,:20]
                     if isinstance(out_post_history[tar_area][tar_pop][tar_area][src_pop], dict):
                         out_post_history[tar_area][tar_pop][tar_area][src_pop] = []
                     out_post_history[tar_area][tar_pop][tar_area][src_pop].append(out_post_array.copy())

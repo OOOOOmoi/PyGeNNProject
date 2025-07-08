@@ -134,7 +134,7 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
                     print(f"Warning: neuron count not found for area {area}, pop {pop}")
             
             all_spike.append(filtered_times)
-            smoothed_rate, time_bins = smooth_firing_rate(filtered_times, total_neurons, sample_bin=sample_bin)
+            smoothed_rate, time_bins = smooth_firing_rate(times, total_neurons, sample_bin=sample_bin)
             if 'pop-psd' in vis_content:
                 plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
                         suffix, area, layer=None, pop=pop, drop=drop)

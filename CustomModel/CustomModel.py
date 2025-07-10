@@ -89,6 +89,10 @@ def getModelName(args):
         model_name += f"_buffer{args.buffer_size/1000:.1f}s"
     if args.SPARSE:
         model_name += f"_SPARSE"
+    if ("free_scale_input" in args):
+        model_name += f"_free{args.free_scale_input}"
+    if ("free_scale_syn" in args):
+        model_name += f"_free{args.free_scale_syn}"
     return model_name
 
 
@@ -97,8 +101,8 @@ if __name__ == "__main__":
     model_name = getModelName(args)
     with open("output/last_model_name.txt", "w") as f:
         f.write(model_name)
-    rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
-    # rand_str = ''
+    # rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
+    rand_str = ''
     model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
@@ -151,6 +155,8 @@ if __name__ == "__main__":
                 input[pop] += float(args.free_scale_input)
             # if pop == "V4" and ("free_scale" in args):
             #     input[pop] += 10*float(args.free_scale)
+            # if pop[0] == "S":
+            #     params["DeltaT"] = 1.0
             if args.poisson:
                 params["Ioffset"] = 0.0
             else:
@@ -166,7 +172,7 @@ if __name__ == "__main__":
                     trigger_pulse_model, neuron_pop,
                     {   "start_time":args.stim_start,
                         "end_time":args.stim_end,
-                        "magnitude": s[0]/1000.0},
+                        "magnitude": s/1000.0},
             )
 
             if args.poisson:

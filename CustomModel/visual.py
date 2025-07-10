@@ -134,7 +134,7 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
                     print(f"Warning: neuron count not found for area {area}, pop {pop}")
             
             all_spike.append(filtered_times)
-            smoothed_rate, time_bins = smooth_firing_rate(times, total_neurons, sample_bin=sample_bin)
+            smoothed_rate, time_bins = smooth_firing_rate(times, total_neurons, sample_bin=sample_bin, drop=drop)
             if 'pop-psd' in vis_content:
                 plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
                         suffix, area, layer=None, pop=pop, drop=drop)
@@ -153,7 +153,7 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
                 if len(spikes) < 10:
                     continue
                 spike_times = np.array(spikes)
-                smoothed_rate, time_bins = smooth_firing_rate(spike_times, neuron_count, sample_bin=sample_bin)
+                smoothed_rate, time_bins = smooth_firing_rate(spike_times, neuron_count, sample_bin=sample_bin, drop=drop)
                 if 'layer-psd' in vis_content:
                     plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
                             suffix, area, layer=layer, pop=None, drop=drop)
@@ -163,7 +163,7 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
 
         if 'area-psd' in vis_content or 'area-rate' in vis_content:
             all_spike = np.concatenate(all_spike) if all_spike else np.array([])
-            smoothed_rate, time_bins = smooth_firing_rate(all_spike, NeuronNumber[area]['total'], sample_bin=sample_bin)
+            smoothed_rate, time_bins = smooth_firing_rate(all_spike, NeuronNumber[area]['total'], sample_bin=sample_bin, drop=drop)
             if 'area-psd' in vis_content:
                 plot_psd(smoothed_rate, time_bins, model_name, sample_bin, 
                         suffix, area, layer=None, pop=None)

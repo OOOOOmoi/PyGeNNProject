@@ -2,7 +2,13 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import ListedColormap, Normalize
+
+def get_custom_colormap():
+    base = plt.get_cmap("viridis")
+    colors = base(np.linspace(0, 1, 256))
+    colors[0] = [1, 1, 1, 1]  # 将最小值设为白色
+    return ListedColormap(colors)
 
 def connectom(synapse_number, synapse_weight, neuron_number, structure, title='Synaptic Connectivity Overview'):
     pops = [f"{area}-{pop}" for area, pops in structure.items() for pop in pops]
@@ -68,7 +74,8 @@ def connectom(synapse_number, synapse_weight, neuron_number, structure, title='S
             fmt=".2f",
             xticklabels=pops,
             yticklabels=pops,
-            cmap='viridis',
+            cmap=get_custom_colormap(),
+
             square=True,
             linewidths=0.5,
             linecolor='gray',

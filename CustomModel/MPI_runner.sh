@@ -13,7 +13,7 @@ fi
 
 NUM_PROCESSES=10        # 要启动的进程数量
 START_SCALE=0         # 初始 free-scale
-SCALE_STEP=0.04          # 每个进程增加的 free-scale 步长
+SCALE_STEP=5          # 每个进程增加的 free-scale 步长
 
 DURATION=3000
 SCRIPT="CustomModel.py"
@@ -24,7 +24,7 @@ for ((i=0; i<NUM_PROCESSES; i++)); do
 
     echo "Launching process $i on GPU $GPU with --free-scale $SCALE"
 
-    python "$SCRIPT" --duration "$DURATION" --device "$GPU" --expLIF --free-scale-syn "$SCALE" &
+    python "$SCRIPT" --duration "$DURATION" --device "$GPU" --expLIF --free-scale-input "$SCALE" &
 done
 
 echo "所有进程已启动。"

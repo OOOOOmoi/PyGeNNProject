@@ -1,22 +1,8 @@
-import pandas as pd
+from getStruct import generate_scale_excel_from_structure, load_scale_dict_from_excel
 
-# 加载 CSV
-df = pd.read_csv("/home/yangjinhao/PyGenn/CustomModel/output/spike/V1/V1_S4_spikes.csv", comment='#', header=None, names=["Time", "NeuronID"])
-df = df[df["Time"] >= 200]
-# 总放电次数
-total_spikes = len(df)
+# generate_scale_excel_from_structure('V1', 'specific_scale_syn.xlsx')
 
-# 时间范围（转换成秒）
-duration_ms = df["Time"].max() - df["Time"].min()
-duration_s = duration_ms / 1000
 
-# 神经元数量（唯一 ID 数）
-num_neurons = df["NeuronID"].nunique()
+data=load_scale_dict_from_excel()
 
-# 平均放电率 = 总放电数 / 神经元数 / 时间（秒）
-if num_neurons > 0 and duration_s > 0:
-    avg_rate = total_spikes / num_neurons / duration_s
-else:
-    avg_rate = 0.0
-
-print(f"平均放电率: {avg_rate:.2f} Hz")
+print(data)

@@ -1,6 +1,7 @@
 import os
 import glob
 import numpy as np
+from getStruct import has_key_path
 def record_spike(neuron_population, spike_data):
     for area, pop_dict in neuron_population.items():
         for pop, p in pop_dict.items():
@@ -37,7 +38,7 @@ def record_inSyn(out_post_history, record_I, synapse_populations, PopList):
     for tar_area, tar_pop_list in record_I.items():
         for tar_pop in tar_pop_list:
             for src_pop in PopList:
-                if synapse_populations[tar_area][tar_pop][tar_area][src_pop] is not None:
+                if has_key_path(synapse_populations, tar_area, tar_pop, tar_area, src_pop):
                     syn_pop=synapse_populations[tar_area][tar_pop][tar_area][src_pop]
                     syn_pop.out_post.pull_from_device()
                     out_post_array = syn_pop.out_post.view[:,:20]

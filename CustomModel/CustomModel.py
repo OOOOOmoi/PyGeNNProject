@@ -15,7 +15,7 @@ from collections import defaultdict
 from nested_dict import nested_dict
 from config import collection_params, vis_content, record_I
 from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path
-from visual import visualize
+from visual import visualize, generate_unique_suffix
 from connectom import connectom
 from record import record_spike, save_spike, record_inSyn, save_inSyn
 from expLIF import expLIF_model
@@ -93,6 +93,8 @@ def getModelName(args):
         model_name += f"_free{args.free_scale_input}"
     if ("free_scale_syn" in args):
         model_name += f"_free{args.free_scale_syn}"
+    if ("scale_stim" in args):
+        model_name += f"_free{args.scale_stim}"
     return model_name
 
 
@@ -125,8 +127,9 @@ if __name__ == "__main__":
     )
     NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap = prepare(args)
     
+    suffix = generate_unique_suffix()
     struct=get_struct()
-    connectom(SynapsesNumber, SynapsesWeightMean, NeuronNumber, struct)
+    connectom(suffix, SynapsesNumber, SynapsesWeightMean, NeuronNumber, struct)
     if "expLIF" in args:
         neuronParam = collection_params['expLIF_dict']
         params = {
@@ -151,7 +154,7 @@ if __name__ == "__main__":
     for area, PopList in struct.items():
         for pop in PopList:
             popName = area+pop
-            if pop == "S4" and ("free_scale_input" in args):
+            if pop == "E4" and ("free_scale_input" in args):
                 input[pop] += float(args.free_scale_input)
             # if pop == "V4" and ("free_scale" in args):
             #     input[pop] += 10*float(args.free_scale)
@@ -168,6 +171,8 @@ if __name__ == "__main__":
                 neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", params, lif_init)
             if args.stim and has_key_path(stim_info, area, pop):
                 s=stim_info[area][pop]
+                # if args.scale_stim:
+                #     s += float(args.scale_stim)
                 model.add_current_source(pop + '_pulse',
                     trigger_pulse_model, neuron_pop,
                     {   "start_time":args.stim_start,
@@ -289,7 +294,7 @@ if __name__ == "__main__":
     if args.save_spike:
         save_spike(spike_data)
 
-    visualize(spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+    visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
                 group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
 
     if args.inSyn:

@@ -10,7 +10,7 @@ def get_custom_colormap():
     colors[0] = [1, 1, 1, 1]  # 将最小值设为白色
     return ListedColormap(colors)
 
-def connectom(synapse_number, synapse_weight, neuron_number, structure, title='Synaptic Connectivity Overview'):
+def connectom(suffix, synapse_number, synapse_weight, neuron_number, structure, title='Synaptic Connectivity Overview'):
     pops = [f"{area}-{pop}" for area, pops in structure.items() for pop in pops]
     n_pops = len(pops)
 
@@ -22,6 +22,9 @@ def connectom(synapse_number, synapse_weight, neuron_number, structure, title='S
     indegree_mask = np.zeros((n_pops, n_pops), dtype=bool)
     effective_mask = np.zeros((n_pops, n_pops), dtype=bool)
 
+    # ✅ 用于保存每行有效权重（非绝对值）求和
+    effective_sum_vector = np.zeros(n_pops)
+
     for i, tarKey in enumerate(pops):
         tarArea, tarPop = tarKey.split('-')
         for j, srcKey in enumerate(pops):
@@ -29,7 +32,7 @@ def connectom(synapse_number, synapse_weight, neuron_number, structure, title='S
 
             try:
                 n_syn = synapse_number[tarArea][tarPop][srcArea][srcPop]
-                w = abs(synapse_weight[tarArea][tarPop][srcArea][srcPop])
+                w = synapse_weight[tarArea][tarPop][srcArea][srcPop]
                 n_neuron = neuron_number[tarArea][tarPop]
 
                 if n_syn == 0 or n_neuron == 0:
@@ -38,7 +41,9 @@ def connectom(synapse_number, synapse_weight, neuron_number, structure, title='S
                 indegree = n_syn / n_neuron
                 weight_matrix[i, j] = abs(w)
                 indegree_matrix[i, j] = indegree
-                effective_matrix[i, j] = abs(w) * indegree / 1000.0
+                effective = w * indegree / 1000.0  # ✅ 不取绝对值
+                effective_matrix[i, j] = abs(effective)
+                effective_sum_vector[i] += effective  # ✅ 保留符号求和
 
             except:
                 weight_mask[i, j] = True
@@ -53,29 +58,34 @@ def connectom(synapse_number, synapse_weight, neuron_number, structure, title='S
                 m = m / max_val
         return m
 
-
-    # 归一化
     weight_norm = normalize(weight_matrix, weight_mask)
     indegree_norm = normalize(indegree_matrix, indegree_mask)
     effective_norm = normalize(effective_matrix, effective_mask)
 
-    fig, axes = plt.subplots(1, 3, figsize=(24, 7))
+    fig, axes = plt.subplots(1, 3, figsize=(26, 7))  # ✅ 宽度略增
     titles = ['Effective Weight (W × In-degree)', 'Synaptic Weight (W)', 'In-degree (Connections/Neuron)']
     matrices = [effective_matrix, weight_matrix, indegree_matrix]
-    # matrices = [effective_norm, weight_norm, indegree_norm]
-    raw_values = [effective_matrix, weight_matrix, indegree_matrix]
     masks = [effective_mask, weight_mask, indegree_mask]
+    raw_values = [effective_matrix, weight_matrix, indegree_matrix]
 
     for ax, norm_mat, raw_mat, msk, ttl in zip(axes, matrices, raw_values, masks, titles):
+        if ttl.startswith("Effective"):
+            # ✅ 添加一列：每行的原始有效权重求和
+            norm_mat = np.hstack([norm_mat, np.zeros((n_pops, 1))])  # dummy zeros (not plotted)
+            raw_mat = np.hstack([raw_mat, effective_sum_vector.reshape(-1, 1)])
+            msk = np.hstack([msk, np.zeros((n_pops, 1), dtype=bool)])
+            xticklabels = pops + ['Σ']  # ✅ 添加最后一列标签
+        else:
+            xticklabels = pops
+
         sns.heatmap(
             norm_mat,
             mask=msk,
-            annot=np.round(raw_mat, 2),
-            fmt=".2f",
-            xticklabels=pops,
+            annot=raw_mat.astype(int),
+            fmt=".0f",
+            xticklabels=xticklabels,
             yticklabels=pops,
             cmap=get_custom_colormap(),
-
             square=True,
             linewidths=0.5,
             linecolor='gray',
@@ -89,4 +99,4 @@ def connectom(synapse_number, synapse_weight, neuron_number, structure, title='S
 
     plt.suptitle(title, fontsize=18)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.savefig("connectivity_matrix.png")
+    plt.savefig(f"output/map/map_{suffix}.png")

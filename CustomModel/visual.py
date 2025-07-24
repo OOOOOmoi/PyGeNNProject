@@ -26,7 +26,7 @@ def generate_unique_suffix(length=3):
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
     return f"{date_str}_{rand_str}"
 
-def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_spacing=50, 
+def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200, group_spacing=50, 
                 model_name=None, NeuronNumber=None, sample_bin=1, vis_content=None):
     if vis_content is None:
         vis_content = set()
@@ -37,7 +37,6 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
         "P": "green",
         "V": "orange"
     }
-    suffix = generate_unique_suffix()
     if spike_data==[]:
         print("All spike_data empty, trying to infer from output/spike directory...")
         spike_root = "output/spike"
@@ -144,7 +143,7 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
             avg_rates.append(avg_rate)
             y_ticks.append(current_y_offset + neurons_per_group // 2)
             y_labels.append(pop+"_"+str(input[pop]))
-            group_labels.append(pop)
+            group_labels.append(pop+"_"+str(input[pop]))
             current_y_offset += neurons_per_group + group_spacing
         if 'layer-psd' in vis_content or 'layer-rate' in vis_content:
             for layer, layer_data in layer_spikes_dict.items():
@@ -173,7 +172,7 @@ def visualize(spike_data, duration=1000, drop=200, neurons_per_group=200, group_
 
         ax_raster=axs_raster[area_idx]
         for times, y_pos, color in raster_point:
-            ax_raster.scatter(times, y_pos, s=2, color=color)
+            ax_raster.scatter(times, y_pos, s=1, color=color)
 
         ax_raster.set_yticks(y_ticks)
         ax_raster.set_yticklabels(y_labels)

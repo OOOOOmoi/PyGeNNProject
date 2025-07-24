@@ -2,6 +2,55 @@ from config import collection_params
 from itertools import product
 from nested_dict import nested_dict
 from scipy.stats import norm
+import os
+import pandas as pd
+
+def generate_scale_excel_from_structure(area, filename='specific_scale_syn.xlsx'):
+    """
+    从 structure[area] 的 neuron populations 生成或更新 Excel 表格。
+    - 行是 target population（tarPop）
+    - 列是 source population（srcPop）
+    - 保留已有值，仅补充新结构
+    """
+    structure = get_struct()  # 获取当前的建模结构
+    pops = structure[area]  # 当前建模的所有 population 名称
+
+    if os.path.exists(filename):
+        old_df = pd.read_excel(filename, index_col=0)
+    else:
+        old_df = pd.DataFrame()
+
+    # 创建一个全新的表格，包含当前 pops 的完整组合
+    new_df = pd.DataFrame(index=pops, columns=pops)
+
+    # 保留旧表格中已有的匹配项值（交叉引用）
+    for tar in pops:
+        for src in pops:
+            if tar in old_df.index and src in old_df.columns:
+                new_df.loc[tar, src] = old_df.loc[tar, src]
+
+    new_df.to_excel(filename)
+    print(f"Excel 文件已生成（保留旧值，补充新结构）: {filename}")
+
+
+def load_scale_dict_from_excel(area='V1', filename='specific_scale_syn.xlsx'):
+    """
+    从 Excel 表格中读取缩放因子，生成嵌套结构的字典：
+    dict[tarArea][tarPop][srcArea][srcPop] = value
+    """
+    df = pd.read_excel(filename, index_col=0)
+    scale_dict = nested_dict()
+
+    for tarPop in df.index:
+        for srcPop in df.columns:
+            val = df.at[tarPop, srcPop]
+            if pd.notna(val):  # 非空有效
+                val = float(val)
+                # 构造嵌套字典
+                scale_dict[tarPop][srcPop] = val
+
+    return scale_dict
+
 
 def parse_specific_scale_syn(config_str):
     specific_scale_syn = {}
@@ -71,7 +120,7 @@ def getWeightMap(structure, args):
     connection_params=collection_params['connection_params']
     alpha_norm = connection_params['alpha_norm']
     beta_norm = connection_params['beta_norm']
-    specific_scale_syn = parse_specific_scale_syn(collection_params['specific_scale_syn'])
+    specific_scale_syn = load_scale_dict_from_excel()
     if "free_scale_syn" in args:
         specific_scale_syn ['V1']['S4']['V1']['V4'] += float(args.free_scale_syn)
     for tarArea, tarList in structure.items():
@@ -94,7 +143,7 @@ def getWeightMap(structure, args):
                         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 0.5
                     SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] = abs(SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop]) * connection_params['PSC_rel_sd_normal']
                     if tarPop == 'E23' and srcPop == 'E4':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['PSP_e_23_4']
+                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['PSP_e_23_4'] / 4
                         SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['PSP_e_23_4'] * connection_params['PSC_rel_sd_normal']
                 else:
                     if tarPop[0] == 'E':
@@ -103,9 +152,9 @@ def getWeightMap(structure, args):
                     else:
                         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= connection_params['cc_weights_I_factor']
                         SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] *= connection_params['cc_weights_I_factor']
-                if has_key_path(specific_scale_syn, tarArea, tarPop, srcArea, srcPop):
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= specific_scale_syn[tarArea][tarPop][srcArea][srcPop]
-                    SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] *= specific_scale_syn[tarArea][tarPop][srcArea][srcPop]
+                if has_key_path(specific_scale_syn, tarPop, srcPop):
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= specific_scale_syn[tarPop][srcPop]
+                    SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] *= specific_scale_syn[tarPop][srcPop]
                 SynapsesWeightMean[tarArea][tarPop]['external']['external'] = connection_params['PSP_ext'] * PSC_over_PSP_['E']
     return SynapsesWeightMean.to_dict(), SynapsesWeightSd.to_dict()
 

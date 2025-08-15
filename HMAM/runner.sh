@@ -1,0 +1,1 @@
+python HMAM.py --poisson

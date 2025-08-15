@@ -103,8 +103,9 @@ if __name__ == "__main__":
     model_name = getModelName(args)
     with open("output/last_model_name.txt", "w") as f:
         f.write(model_name)
-    # rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
     rand_str = ''
+    rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
+    
     model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
@@ -154,8 +155,14 @@ if __name__ == "__main__":
     for area, PopList in struct.items():
         for pop in PopList:
             popName = area+pop
-            if pop == "E4" and ("free_scale_input" in args):
+            if pop == "S4" and ("free_scale_input" in args):
                 input[pop] += float(args.free_scale_input)
+            # if pop == "S5" and ("free_scale_input" in args):
+            #     input[pop] += 1.2*float(args.free_scale_input)
+            # if pop == "P5" and ("free_scale_input" in args):
+            #     input[pop] += 2.2*float(args.free_scale_input)
+            # if pop == "V5" and ("free_scale_input" in args):
+            #     input[pop] += 2.4*float(args.free_scale_input)
             # if pop == "V4" and ("free_scale" in args):
             #     input[pop] += 10*float(args.free_scale)
             # if pop[0] == "S":

@@ -122,7 +122,7 @@ def getWeightMap(structure, args):
     beta_norm = connection_params['beta_norm']
     specific_scale_syn = load_scale_dict_from_excel()
     if "free_scale_syn" in args:
-        specific_scale_syn ['V1']['S4']['V1']['V4'] += float(args.free_scale_syn)
+        specific_scale_syn ['V5']['E5'] += float(args.free_scale_syn)
     for tarArea, tarList in structure.items():
         for srcArea, srcList in structure.items():
             for tarPop, srcPop in product(tarList, srcList):
@@ -130,7 +130,7 @@ def getWeightMap(structure, args):
                 PSC_over_PSP = PSC_over_PSP_[type_]
                 if tarArea == srcArea:
                     if srcPop[0] == 'E':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * alpha_norm[srcPop]*beta_norm[tarPop] * connection_params['PSP_e']
+                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * alpha_norm[srcPop] * connection_params['PSP_e']
                     if srcPop[0] == 'H':
                         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['g_H'] * alpha_norm[srcPop] * connection_params['PSP_e']
                     if srcPop[0] == 'P':

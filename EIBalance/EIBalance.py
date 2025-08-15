@@ -6,52 +6,54 @@ from pygenn import GeNNModel, init_postsynaptic, init_sparse_connectivity, init_
 model = GeNNModel("float", "tutorial2")
 model.dt = 1.0
 
-lif_params = {"C": 1.0, "TauM": 20.0, "Vrest": -49.0, "Vreset": -60.0,
-              "Vthresh": -50.0, "Ioffset": 0.0, "TauRefrac": 5.0}
+lif_params = {"C": 0.5, "TauM": 20.0, "Vrest": -70.0, "Vreset": -60.0,
+              "Vthresh": -50.0, "Ioffset": 0.501, "TauRefrac": 2.0}
 
 lif_init = {"V": init_var("Uniform", {"min": -60.0, "max": -50.0}),
             "RefracTime": 0.0}
 
-exc_pop = model.add_neuron_population("E", 320000, "LIF", lif_params, lif_init)
-inh_pop = model.add_neuron_population("I", 80000, "LIF", lif_params, lif_init)
+exc_pop = model.add_neuron_population("E", 4000, "LIF", lif_params, lif_init)
+lif_params["TauM"] = 10.0
+inh_pop = model.add_neuron_population("I", 1000, "LIF", lif_params, lif_init)
 
 exc_pop.spike_recording_enabled = True
 inh_pop.spike_recording_enabled = True
 
-exc_synapse_init = {"g": 0.0008}
-inh_synapse_init = {"g": -0.0102}
+wEE_init = {"g": 0.05}
+wEI_init = {"g": 0.25}
+wII_init = {"g": -2}
+wIE_init = {"g": -2}
 
-exc_post_syn_params = {"tau": 5.0}
+exc_post_syn_params = {"tau": 2.0}
 inh_post_syn_params = {"tau": 10.0}
 
-fixed_prob = {"prob": 0.02}
+fixed_prob = {"prob": 0.1}
 
 model.add_synapse_population("EE", "SPARSE",
     exc_pop, exc_pop,
-    init_weight_update("StaticPulseConstantWeight", exc_synapse_init),
+    init_weight_update("StaticPulseConstantWeight", wEE_init),
     init_postsynaptic("ExpCurr", exc_post_syn_params),
     init_sparse_connectivity("FixedProbabilityNoAutapse", fixed_prob))
 
 model.add_synapse_population("EI", "SPARSE",
     exc_pop, inh_pop,
-    init_weight_update("StaticPulseConstantWeight", exc_synapse_init),
+    init_weight_update("StaticPulseConstantWeight", wEI_init),
     init_postsynaptic("ExpCurr", exc_post_syn_params),
     init_sparse_connectivity("FixedProbability", fixed_prob))
 
 model.add_synapse_population("II", "SPARSE",
     inh_pop, inh_pop,
-    init_weight_update("StaticPulseConstantWeight", inh_synapse_init),
+    init_weight_update("StaticPulseConstantWeight", wII_init),
     init_postsynaptic("ExpCurr", inh_post_syn_params),
     init_sparse_connectivity("FixedProbabilityNoAutapse", fixed_prob))
 
 model.add_synapse_population("IE", "SPARSE",
     inh_pop, exc_pop,
-    init_weight_update("StaticPulseConstantWeight", inh_synapse_init),
+    init_weight_update("StaticPulseConstantWeight", wIE_init),
     init_postsynaptic("ExpCurr", inh_post_syn_params),
     init_sparse_connectivity("FixedProbability", fixed_prob))
-model_rebuild=False
-if model_rebuild:
-    model.build()
+
+model.build()
 model.load(num_recording_timesteps=1000)
 
 while model.timestep < 1000:
@@ -72,15 +74,15 @@ rate_bin_centres = rate_bins[:-1] + (bin_size / 2.0)
 
 # Plot excitatory and inhibitory spikes on first axis
 axes[0].scatter(exc_spike_times, exc_spike_ids, s=1)
-axes[0].scatter(inh_spike_times, inh_spike_ids + 32000, s=1)
+axes[0].scatter(inh_spike_times, inh_spike_ids + 4000, s=1)
 
 # Plot excitatory rates on second axis
 exc_rate = np.histogram(exc_spike_times, bins=rate_bins)[0]
-axes[1].plot(rate_bin_centres, exc_rate * (1000.0 / bin_size) * (1.0 / 3200.0))
+axes[1].plot(rate_bin_centres, exc_rate * (1000.0 / bin_size) * (1.0 / 4000.0))
 
 # Plot inhibitory rates on third axis
 inh_rate = np.histogram(inh_spike_times, bins=rate_bins)[0]
-axes[2].plot(rate_bin_centres, inh_rate * (1000.0 / bin_size) * (1.0 / 800.0))
+axes[2].plot(rate_bin_centres, inh_rate * (1000.0 / bin_size) * (1.0 / 1000.0))
 
 # Label axes
 axes[0].set_ylabel("Neuron ID")

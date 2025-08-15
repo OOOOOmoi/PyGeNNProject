@@ -13,7 +13,7 @@ fi
 
 NUM_PROCESSES=10        # 要启动的进程数量
 START_SCALE=0         # 初始 free-scale
-SCALE_STEP=5          # 每个进程增加的 free-scale 步长
+SCALE_STEP=-5          # 每个进程增加的 free-scale 步长
 
 DURATION=3000
 SCRIPT="CustomModel.py"

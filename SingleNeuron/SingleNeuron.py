@@ -6,13 +6,13 @@ single_neuron_dict = {
     # Leak potential of the neurons .
     'E_L': -70.0, # mV
     # Threshold potential of the neurons .
-    'V_th': -50.0, # mV
+    'V_th': -45.0, # mV
     # Membrane potential after a spike .
-    'V_reset': -60.0, # mV
+    'V_reset': -70.0, # mV
     # Membrane capacitance .
-    'C_m': 500.0, # pF
+    'C_m': 220.0, # pF
     # Membrane time constant .
-    'tau_m': 20.0, # ms
+    'tau_m': 10.0, # ms
     # Time constant of postsynaptic currents .
     'tau_syn': 0.5, # ms
     # Refractory period of the neurons after a spike .
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     model.timing_enabled = True
     model.default_var_location = VarLocation.HOST_DEVICE
     model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
-    lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": 2.0}
+    lif_init = {"V": init_var("Uniform", {"min": -70.0, "max": -60.0}), "RefracTime": 2.0}
     lif_params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
                     "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
                     "Vthresh" : neuronParam['V_th'], "Ioffset": neuronParam['input'],

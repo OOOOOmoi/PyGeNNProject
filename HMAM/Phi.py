@@ -1,10 +1,11 @@
-from config import data_dir, layer_map, vis_content, get_NN, get_SN, get_weight, get_weight_ext, externalRates
+from config import get_NN, get_SN, get_weight, get_weight_ext, externalRates
 from config import net as net_config
-import os
 import itertools as product
 import pandas as pd
 from sigert import mu_sigma
 from theory_helpers import nu0_fb
+from scipy import optimize
+import numpy as np
 
 def getMatrix():
     NN = get_NN()
@@ -74,8 +75,14 @@ def Phi(rate, K_matrix, J_matrix, rate_ext, SingleNeuronDict):
                                                     NP['V_reset'] - NP['E_L']),
                         mu, sigma))
 
-def fp_solve(Phi, rate, K_matrix, J_matrix, rate_ext, SingleNeuronDict):
-    def f():
-        return Phi(rate)-rate
-    result = optimize.fsolve(f, rates_init, full_output=1)
-    
+def fp_solve(Phi, rates_init, K_matrix, J_matrix, rate_ext, SingleNeuronDict):
+    def f(rate, K_matrix, J_matrix, rate_ext, SingleNeuronDict):
+        return Phi(rate, K_matrix, J_matrix, rate_ext, SingleNeuronDict)-rate
+    result = optimize.fsolve(f, rates_init, 
+                             args=(K_matrix, J_matrix, rate_ext, SingleNeuronDict),
+                             full_output=1)
+    mu, sigma = mu_sigma(result[0], K_matrix, J_matrix, rate_ext, SingleNeuronDict)
+    result_dic = {'rates': np.array([result[0]]), 'mus': np.array(
+            [mu]), 'sigmas': np.array([sigma]), 'eps': result[-1], 'time': np.array([0])}
+    return result_dic
+

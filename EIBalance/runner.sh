@@ -1,0 +1,1 @@
+python EIBalance.py --wEE 0.0 --wEI 0.15 --wIE 0.12 --wII 0.0 --device 2

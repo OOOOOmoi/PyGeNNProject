@@ -75,6 +75,8 @@ neuron_params_E:
   tau_m: 10.0
   tau_syn_ex: 2.0
   tau_syn_in: 2.0
+  DeltaT: 5.0
+  VT: -50.0
 neuron_params_I:
   C_m: 100.0
   E_L: -70.0
@@ -84,6 +86,8 @@ neuron_params_I:
   tau_m: 10.0
   tau_syn_ex: 2.0
   tau_syn_in: 2.0
+  DeltaT: 5.0
+  VT: -50.0
 p_transmit: 1.0
 population_list:
 - E

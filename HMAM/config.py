@@ -5,7 +5,7 @@ current_dir = os.path.dirname(__file__)
 data_dir = os.path.join(current_dir, 'out')
 net_dir = os.path.join(data_dir, 'net.yaml')
 
-vis_content = []
+vis_content = ['pop-rate']
 
 with open(net_dir, 'r') as f:
     net = yaml.safe_load(f)
@@ -16,6 +16,32 @@ layer_map = {
     'IV': '4',
     'V': '5',
     'VI': '6'
+}
+
+input={
+    "E23": 420.0 + 0.0, "I23": 420.0 + -0.0,
+    "E4": 200.0 + 0.0,  "I4": 150.0 + 0.0,
+    "E5": 420.0 + 0.0,  "I5": 420.0 + 0.0,
+    "E6": 420.0 + 0.0,  "I6": 420.0 + 0.0,
+}
+
+expLIF_dict = {
+    # Leak potential of the neurons .
+    'E_L': -60.0, # mV
+    # Threshold potential of the neurons .
+    'V_th': 20.0, # mV
+    # Membrane potential after a spike .
+    'V_reset': -60.0, # mV
+    # Membrane capacitance .
+    'C_m': 500.0, # pF
+    # Membrane time constant .
+    'tau_m': 20.0, # ms
+    # Time constant of postsynaptic currents .
+    'tau_syn': 0.5, # ms
+    # Refractory period of the neurons after a spike .
+    't_ref': 2.0, # ms
+    'DeltaT': 5.0, # mV
+    'VT': -50.0, # mV
 }
 
 def has_key_path(d, *keys):
@@ -70,3 +96,12 @@ def externalRates(param, eta_ext, K, W):
     conversion_E = tau_m_E * K * tau_syn_E * W / C_m_E
     rates = 1e3 * (V_th_E - E_L_E) * eta_ext / conversion_E
     return rates
+
+def get_cc_delay():
+    delay_path=os.path.join(data_dir, 'delay_cc.pkl')
+    with open(delay_path, 'rb') as f:
+        delay= pickle.load(f)
+    delay_sd_path=os.path.join(data_dir, 'delay_cc_sd.pkl')
+    with open(delay_sd_path, 'rb') as f:
+        delay_sd= pickle.load(f)
+    return delay, delay_sd

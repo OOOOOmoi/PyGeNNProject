@@ -1,7 +1,7 @@
 import os
 import glob
 import numpy as np
-from config import has_key_path
+from config import has_key_path, layer_map
 def record_spike(neuron_population, spike_data):
     for area, pop_dict in neuron_population.items():
         for pop, p in pop_dict.items():
@@ -64,3 +64,9 @@ def save_inSyn(out_post_history):
                     file_path = os.path.join(folder_path, filename)
 
                     np.savetxt(file_path, all_data, delimiter=",", fmt="%.3f")
+
+
+def record_inSyn_single(syn):
+    syn.out_post.pull_from_device()
+    out_post_array = syn.out_post.view[:, :20]
+    return out_post_array.copy()

@@ -35,7 +35,7 @@ def connectom(suffix, synapse_number, synapse_weight, neuron_number, arealist, l
             src = (srcArea, srcLayer, srcPop)
             try:
                 n_syn = synapse_number.loc[tar, src]
-                w = synapse_weight.loc[srcPop, tarPop]
+                w = synapse_weight.loc[tar, src]
                 n_neuron = neuron_number.loc[tar]
 
                 if n_syn == 0 or n_neuron == 0:

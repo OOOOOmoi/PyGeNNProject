@@ -5,7 +5,7 @@ current_dir = os.path.dirname(__file__)
 data_dir = os.path.join(current_dir, 'out')
 net_dir = os.path.join(data_dir, 'net.yaml')
 
-vis_content = ['pop-rate']
+vis_content = ['']
 
 with open(net_dir, 'r') as f:
     net = yaml.safe_load(f)

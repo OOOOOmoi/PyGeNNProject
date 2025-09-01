@@ -16,16 +16,21 @@ fi
 # 捕获 Ctrl+C 或 kill 信号，杀死所有子进程
 trap "echo 'Stopping runner...'; kill 0; exit" SIGINT SIGTERM
 
-values=$(seq 0 5 100)
-ngpu=10
+values=$(seq 10 10 100)
+ngpu=30
 count=0
 
-for w in $values; do
+for w1 in $values; do
+for w2 in $values; do
+for w3 in $values; do
+for w4 in $values; do
   gpu_id=$((count % ngpu))
   echo "Launching task $count on GPU $gpu_id"
   
   python HMAM.py \
-    --wEE 0 --wEI 50 --wIE $w --wII 0  \
+    --wEE $w1 --wEI $w2 --wIE $w3 --wII $w4  \
+    --duration 3000 \
+    --SPARSE \
     --device $gpu_id &
 
   if (( (count+1) % ngpu == 0 )); then
@@ -33,5 +38,7 @@ for w in $values; do
   fi
   ((count++))
 done
-
+done
+done
+done
 wait

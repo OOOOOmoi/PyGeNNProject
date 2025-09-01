@@ -15,6 +15,7 @@ from config import expLIF_dict, input, layer_map, vis_content, get_NN, get_SN, g
 from scipy.stats import norm
 from record import record_spike, save_spike, record_inSyn_single, save_inSyn
 from visual import visualize, generate_unique_suffix
+from visual_single import visualize_single
 from connectom import connectom
 from expLIF import expLIF_model
 
@@ -102,7 +103,7 @@ if __name__ == "__main__":
     neuron_populations = defaultdict(dict)
     NeuronNumber = defaultdict(dict)
     poisson_init = {"current": 0.0}
-    lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": 0.0}
+    lif_init = {"V": init_var("Uniform", {"max": -50.0, "min": -200.0}), "RefracTime": 0.0}
     for area in area_list:
         for layer in layer_list:
             for pop in pop_list:
@@ -237,7 +238,7 @@ if __name__ == "__main__":
 
     if args.inSyn:
         all_data=np.vstack(inSyn)
-        np.savetxt("E42I4.csv", all_data, delimiter=",", fmt="%.5f")
+        np.savetxt("E42I4.csv", all_data, delimiter=",", fmt="%.3f")
 
     sim_end_time = perf_counter()
 
@@ -250,10 +251,11 @@ if __name__ == "__main__":
     # Merge data
     if args.save_spike:
         save_spike(spike_data)
-    connectom(suffix, SN, weight_test, NN, area_list, layer_list, pop_list, title='Synaptic Connectivity Overview')
-    visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
-                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
-
+    connectom(suffix, SN, weight, NN, area_list, layer_list, pop_list, title='Synaptic Connectivity Overview')
+    # visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+    #             group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+    visualize_single(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+                group_spacing=20, NeuronNumber=NeuronNumber)
 
     print("Timing:")
     print("\tBuild:%f" % ((build_end_time - build_start_time) * 1000.0))

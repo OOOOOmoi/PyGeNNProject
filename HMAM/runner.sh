@@ -1,4 +1,5 @@
 python HMAM.py \
     --device 2 \
-    --wEE 0 --wEI 1 --wIE 1 --wII 0 \
-    # --inSyn
+    --wEE 10 --wEI 20 --wIE 90 --wII 30 \
+    --duration 3000 \
+    --inSyn

@@ -36,7 +36,7 @@ dual_exp = create_weight_update_model(
     addToPost(weight * g);
     scalar dt = t - st_pre;
     scalar inp = 0;
-    if (dt == 0.0) {
+    if (dt <= 0.1 * DT) {
         inp = 1 / DT;
     }
     scalar dx = (-x / taur + inp) * DT;
@@ -48,11 +48,8 @@ dual_exp = create_weight_update_model(
 
 constant_current = create_weight_update_model(
     "constant_current",
-    params=[("current", "scalar")],
-    synapse_dynamics_code=
-    """
-    addToPost(current);
-    """
+    params=[("weight", "scalar")],
+    pre_spike_syn_code="addToPost(weight);"
 )
 
 constant_syn = pygenn.create_postsynaptic_model(
@@ -60,6 +57,17 @@ constant_syn = pygenn.create_postsynaptic_model(
     sim_code=
     """
     injectCurrent(inSyn);
+    """
+)
+
+postsyn_dual_exp = pygenn.create_postsynaptic_model(
+    "dual_exp_post",
+    params=[("taur", "scalar"), ("taud", "scalar")],
+    vars=[("g", "scalar")],
+    sim_code= """
+        injectCurrent(g);
+        g += (-g/taud + inSyn)*dt;
+        inSyn += -inSyn/taur*dt; 
     """
 )
 
@@ -78,18 +86,27 @@ params = {"C": single_neuron_dict['C_m']/1000, "TauM": single_neuron_dict['tau_m
 lif_init = {"V": -70.0, "RefracTime": 0.0}
 dual_exp_params = {"taur": 5.0, "taud": 100.0, "weight": 0.1, "DT": model.dt}
 dual_exp_var_init = {"x": 0.0, "g": 0.0}
-constant_current_params = {"current": 0.501}
+constant_current_params = {"weight": 0.1}
 connect_params = {"num": 1}
 pre = model.add_neuron_population("pre", 1, "LIF", params, lif_init)
 params["Ioffset"] = 0.0
 post = model.add_neuron_population("post", 1, "LIF", params, lif_init)
+static_synapse_init = init_weight_update("StaticPulseDendriticDelay", {},
+                                {"g": 0.1,
+                                "d": 1.5})
+# dual_exp_pop = model.add_synapse_population(
+#     "syn1", "SPARSE", pre, post, 
+#     init_weight_update(dual_exp, dual_exp_params, dual_exp_var_init),
+#     init_postsynaptic("DeltaCurr"),
+#     init_sparse_connectivity("OneToOne")
+# )
 dual_exp_pop = model.add_synapse_population(
-    "dual_exp", "SPARSE", pre, post, 
-    init_weight_update(dual_exp, dual_exp_params, dual_exp_var_init),
-    init_postsynaptic("DeltaCurr"),
+    "syn2", "SPARSE", pre, post,
+    init_weight_update(constant_current, constant_current_params),
+    init_postsynaptic(postsyn_dual_exp, {"taur": 5.0, "taud": 100.0}, {"g": 0.0}),
     init_sparse_connectivity("OneToOne")
 )
-# dual_exp_pop.max_dendritic_delay_timesteps = 15
+dual_exp_pop.max_dendritic_delay_timesteps = 15
 duration = 1000.0
 model.build()
 model.load(num_recording_timesteps = int(round(duration / model.dt)))

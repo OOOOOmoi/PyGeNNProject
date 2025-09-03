@@ -18,7 +18,6 @@ from visual import visualize, generate_unique_suffix
 from visual_single import visualize_single
 from connectom import connectom
 from expLIF import expLIF_model
-
 DT_MS=0.1
 NUM_THREADS_PER_SPIKE=8
 

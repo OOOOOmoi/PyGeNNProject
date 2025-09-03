@@ -1,6 +1,6 @@
 #!/bin/bash
 
-find /home/yangjinhao/PyGenn/HMAM/output -name "*.png" -type f -delete
+find /home/yangjinhao/PyGennProject/HMAM/output -name "*.png" -type f -delete
 #!/bin/bash
 
 TARGET_DIR="./HMAM_CODE"
@@ -16,14 +16,17 @@ fi
 # 捕获 Ctrl+C 或 kill 信号，杀死所有子进程
 trap "echo 'Stopping runner...'; kill 0; exit" SIGINT SIGTERM
 
-values=$(seq 10 10 100)
-ngpu=30
+values1=$(seq 10 10 10)
+values2=$(seq 10 10 100)
+values3=$(seq 10 10 100)
+values4=$(seq 10 10 10)
+ngpu=8
 count=0
 
-for w1 in $values; do
-for w2 in $values; do
-for w3 in $values; do
-for w4 in $values; do
+for w1 in $values1; do
+for w2 in $values2; do
+for w3 in $values3; do
+for w4 in $values4; do
   gpu_id=$((count % ngpu))
   echo "Launching task $count on GPU $gpu_id"
   

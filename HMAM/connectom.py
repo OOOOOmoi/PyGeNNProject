@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, Normalize
 import itertools
-
+import os
 def get_custom_colormap():
     base = plt.get_cmap("viridis")
     colors = base(np.linspace(0, 1, 256))
@@ -12,6 +12,8 @@ def get_custom_colormap():
     return ListedColormap(colors)
 
 def connectom(suffix, synapse_number, synapse_weight, neuron_number, arealist, layerlist, poplist, title='Synaptic Connectivity Overview'):
+    os.makedirs("output/map", exist_ok=True)
+    
     pops = [f"{area}-{pop}-{layer}" for area, layer, pop in itertools.product(arealist, layerlist, poplist)]
 
     n_pops = len(pops)

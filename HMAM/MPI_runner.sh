@@ -1,6 +1,6 @@
 #!/bin/bash
 
-find /home/yangjinhao/PyGennProject/HMAM/output -name "*.png" -type f -delete
+find /home/yangjinhao/PyGeNNProject/HMAM/output -name "*.png" -type f -delete
 #!/bin/bash
 
 TARGET_DIR="./HMAM_CODE"
@@ -16,10 +16,10 @@ fi
 # 捕获 Ctrl+C 或 kill 信号，杀死所有子进程
 trap "echo 'Stopping runner...'; kill 0; exit" SIGINT SIGTERM
 
-values1=$(seq 10 10 10)
-values2=$(seq 10 10 100)
-values3=$(seq 10 10 100)
-values4=$(seq 10 10 10)
+values1=$(seq 0 0.1 0)
+values2=$(seq 0.1 0.1 1)
+values3=$(seq 0.1 0.1 1)
+values4=$(seq 0 0.1 0)
 ngpu=8
 count=0
 

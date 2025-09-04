@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 def plot_firing_rate_curve(rate_smoothed, time_bins, suffix, model_name, 
                            area, layer=None, pop=None):
+    os.makedirs("output/rate", exist_ok=True)
     
     # 构造时间轴
     time_axis = (time_bins[:-1] + time_bins[1:]) / 2  # ms

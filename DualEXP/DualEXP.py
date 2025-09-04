@@ -4,6 +4,7 @@ import pygenn
 from pygenn import (GeNNModel, VarLocation, init_postsynaptic, create_var_init_snippet,
                     init_sparse_connectivity, init_weight_update, init_var, 
                     create_weight_update_model)
+from pygenn.cuda_backend import DeviceSelect
 import matplotlib.pyplot as plt
 
 single_neuron_dict = {

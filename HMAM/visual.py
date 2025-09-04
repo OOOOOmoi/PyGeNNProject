@@ -27,6 +27,8 @@ def generate_unique_suffix(length=3):
 
 def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200, group_spacing=50, 
                 model_name=None, NeuronNumber=None, sample_bin=1, vis_content=None):
+    os.makedirs("output/raster", exist_ok=True)
+    os.makedirs("output/hist", exist_ok=True)
     if vis_content is None:
         vis_content = set()
     color_map = {

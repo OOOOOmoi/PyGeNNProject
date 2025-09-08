@@ -9,6 +9,7 @@ import datetime
 import random
 import string
 from pygenn.cuda_backend import DeviceSelect
+import sys
 current_dir = os.path.dirname(__file__)
 
 def generate_unique_suffix(length=3):
@@ -93,6 +94,29 @@ expLIF_model = pygenn.create_neuron_model(
         """,
     derived_params=[("Rmembrane", lambda pars,dt:pars["TauM"]/pars["C"])],
 )
+
+trigger_pulse_model = pygenn.create_current_source_model(
+    "trigger_pulse",
+    params=["start_time","end_time","magnitude"],  # 参数：噪声强度
+    injection_code=
+    """
+    if (t >= start_time && t < end_time) {
+        injectCurrent(magnitude);
+    }
+    """
+)
+
+postsyn_dual_exp = pygenn.create_postsynaptic_model(
+    "dual_exp_post",
+    params=[("taur", "scalar"), ("taud", "scalar")],
+    vars=[("g", "scalar")],
+    sim_code= """
+        injectCurrent(g);
+        g += (-g/taud + inSyn)*dt;
+        inSyn += -inSyn/taur*dt; 
+    """
+)
+
 args = parse_all_args()
 model_name = "wEE_{}_wEI_{}_wIE_{}_wII_{}".format(args.wEE, args.wEI, args.wIE, args.wII)
 suffix = generate_unique_suffix()
@@ -102,7 +126,7 @@ model.dt = 0.1
 model.fuse_postsynaptic_models = False
 
 single_neuron_dict = {"C_m": 0.5, "tau_m": 20.0, "Vrest": -60.0, "Vreset": -60.0,
-              "V_th": -45.0, "input": 0.2, "t_ref": 5.0, "DeltaT": 5.0, "VT": -50.0}
+              "V_th": -45.0, "input": 0, "t_ref": 5.0, "DeltaT": 5.0, "VT": -50.0}
 
 explif_params = {
     "C": single_neuron_dict['C_m'],  # Convert pF to nF
@@ -120,8 +144,16 @@ lif_init = {"V": init_var("Uniform", {"min": -60.0, "max": -50.0}),
             "RefracTime": 0.0}
 
 exc_pop = model.add_neuron_population("E", 4000, expLIF_model, explif_params, lif_init)
-explif_params["Ioffset"]=0.15
+model.add_current_source("E_pulse", trigger_pulse_model, exc_pop,
+                         {"start_time":500,
+                        "end_time":3000,
+                        "magnitude":0.2})
+explif_params["Ioffset"]=0
 inh_pop = model.add_neuron_population("I", 1000, expLIF_model, explif_params, lif_init)
+model.add_current_source("I_pulse", trigger_pulse_model, inh_pop,
+                         {"start_time":500,
+                        "end_time":3000,
+                        "magnitude":0.15})
 
 exc_pop.spike_recording_enabled = True
 inh_pop.spike_recording_enabled = True
@@ -136,11 +168,16 @@ inh_post_syn_params = {"tau": 5.0}
 
 fixed_prob = {"prob": 0.02}
 
-EEpop=model.add_synapse_population("EE", "SPARSE",
+# EEpop=model.add_synapse_population("EE", "SPARSE",
+#     exc_pop, exc_pop,
+#     init_weight_update("StaticPulseConstantWeight", wEE_init),
+#     init_postsynaptic("ExpCurr", exc_post_syn_params),
+#     init_sparse_connectivity("FixedProbabilityNoAutapse", fixed_prob))
+EEpop=model.add_synapse_population("EE_NMDA", "SPARSE",
     exc_pop, exc_pop,
     init_weight_update("StaticPulseConstantWeight", wEE_init),
-    init_postsynaptic("ExpCurr", exc_post_syn_params),
-    init_sparse_connectivity("FixedProbabilityNoAutapse", fixed_prob))
+    init_postsynaptic(postsyn_dual_exp, {"taur": 5.0, "taud": 100.0}, {"g": 0.0}),
+    init_sparse_connectivity("FixedProbability", fixed_prob))
 
 EIpop=model.add_synapse_population("EI", "SPARSE",
     exc_pop, inh_pop,
@@ -215,5 +252,5 @@ axes[3].set_xlabel("Time [ms]")
 axes[3].set_ylabel("Normalized rate")
 axes[3].legend()
 axes[0].set_title(f"Raster plot and firing rates - {model_name}", fontsize=20)
-
+os.makedirs('output', exist_ok=True)
 plt.savefig(f"output/{model_name}.png")

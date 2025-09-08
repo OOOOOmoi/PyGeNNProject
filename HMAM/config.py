@@ -19,10 +19,10 @@ layer_map = {
 }
 
 input={
-    "E23": 420.0 + 0.0, "I23": 420.0 + -0.0,
-    "E4": 200.0 + 0.0,  "I4": 150.0 + 0.0,
-    "E5": 420.0 + 0.0,  "I5": 420.0 + 0.0,
-    "E6": 420.0 + 0.0,  "I6": 420.0 + 0.0,
+    "E23": 200.0 + 0.0, "I23": 200.0 + -0.0,
+    "E4": 200.0 + 0.0,  "I4": 200.0 + 0.0,
+    "E5": 200.0 + 0.0,  "I5": 200.0 + 0.0,
+    "E6": 200.0 + 0.0,  "I6": 200.0 + 0.0,
 }
 
 expLIF_dict = {
@@ -105,3 +105,29 @@ def get_cc_delay():
     with open(delay_sd_path, 'rb') as f:
         delay_sd= pickle.load(f)
     return delay, delay_sd
+
+def getModelName(args):
+    model_name = f"{args.duration/1000.0:.1f}s"
+    if args.stim:
+        model_name += f"_stim"
+        model_name += f"_start{args.stim_start/1000:.1f}s"
+        model_name += f"_end{args.stim_end/1000:.1f}s"
+    if args.buffer:
+        model_name += f"_buffer{args.buffer_size/1000:.1f}s"
+    if args.SPARSE:
+        model_name += f"_SPARSE"
+    if ("free_scale_input" in args):
+        model_name += f"_free{args.free_scale_input}"
+    if ("free_scale_syn" in args):
+        model_name += f"_free{args.free_scale_syn}"
+    if ("scale_stim" in args):
+        model_name += f"_free{args.scale_stim}"
+    if args.wEE is not None:
+        model_name += f"_wEE{args.wEE}"
+    if args.wEI is not None:
+        model_name += f"_wEI{args.wEI}"
+    if args.wIE is not None:
+        model_name += f"_wIE{args.wIE}"
+    if args.wII is not None:
+        model_name += f"_wII{args.wII}"
+    return model_name

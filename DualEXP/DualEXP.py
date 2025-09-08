@@ -37,7 +37,7 @@ dual_exp = create_weight_update_model(
     addToPost(weight * g);
     scalar dt = t - st_pre;
     scalar inp = 0;
-    if (dt <= 0.1 * DT) {
+    if (dt <= 0.9 * DT) {
         inp = 1 / DT;
     }
     scalar dx = (-x / taur + inp) * DT;

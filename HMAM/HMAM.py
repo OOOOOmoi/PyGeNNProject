@@ -11,13 +11,14 @@ import pandas as pd
 from collections import defaultdict
 from nested_dict import nested_dict
 from config import net as net_config
-from config import expLIF_dict, input, layer_map, vis_content, get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay
+from config import expLIF_dict, input, layer_map, vis_content, get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay, getModelName
 from scipy.stats import norm
 from record import record_spike, save_spike, record_inSyn_single, save_inSyn
 from visual import visualize, generate_unique_suffix
 from visual_single import visualize_single
 from connectom import connectom
 from expLIF import expLIF_model
+from dual_exp import dual_exp_model
 DT_MS=0.1
 NUM_THREADS_PER_SPIKE=8
 
@@ -34,10 +35,10 @@ def get_parser():
     parser.add_argument("--save-spike", action="store_true", help="whether store spike")
     parser.add_argument("--device", type=int, default=0, help="Device ID to use for simulation")
     parser.add_argument("--poisson", action="store_true", help="Whether use poisson input")
-    parser.add_argument("--wEE", type=float, default=3.0, help="Weight of E to E")
-    parser.add_argument("--wEI", type=float, default=0.0, help="Weight of E to I")
-    parser.add_argument("--wIE", type=float, default=-5.0, help="Weight of I to E")
-    parser.add_argument("--wII", type=float, default=0.0, help="Weight of I to I")
+    parser.add_argument("--wEE", type=float, nargs="?", help="Weight of E to E")
+    parser.add_argument("--wEI", type=float, nargs="?", help="Weight of E to I")
+    parser.add_argument("--wIE", type=float, nargs="?", help="Weight of I to E")
+    parser.add_argument("--wII", type=float, nargs="?", help="Weight of I to I")
     return parser
 
 def parse_all_args():
@@ -60,10 +61,26 @@ def parse_all_args():
     args_dict.update(extra_args)
     return Namespace(**args_dict)
 
+def load_scale_dict_from_excel(weight, filename='specific_scale_syn.xlsx'):
+    df = pd.read_excel(filename, index_col=0)
+    idx = pd.IndexSlice
+    for tarName in df.index:
+        for srcName in df.columns:
+            val = df.at[tarName, srcName]
+            if pd.notna(val):  # 非空有效
+                val = float(val)
+                # 构造嵌套字典
+                tarPop, tarLayer = tarName.split('-')
+                srcPop, srcLayer = srcName.split('-')
+                if srcPop == 'I':
+                    val *= -1
+                weight.loc[idx[:, tarLayer, tarPop], idx[:, srcLayer, srcPop]] = val
+    return weight
+
 if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
-    model_name = 'HMAM'+'_wEE'+str(args.wEE)+'_wEI'+str(args.wEI)+'_wIE'+str(args.wIE)+'_wII'+str(args.wII)
+    model_name = getModelName(args)
     model = GeNNModel("float", "HMAM_CODE/"+model_name, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
@@ -127,6 +144,7 @@ if __name__ == "__main__":
                         ext_weight = weight_ext.loc[(area, layer, pop)]
                         K = SN_ext.loc[(area, layer, pop)] / popNum
                         rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight)
+                        rate = 10*K
                         poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                         model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
 
@@ -140,11 +158,18 @@ if __name__ == "__main__":
     synapse_populations = nested_dict()
     weight, weight_sd = get_weight()
     delay_cc, delay_cc_sd = get_cc_delay()
-    weight_test = pd.DataFrame(index=pop_list, columns=pop_list)
-    weight_test.loc["E", "E"] = args.wEE
-    weight_test.loc["E", "I"] = args.wEI
-    weight_test.loc["I", "E"] = -1*args.wIE
-    weight_test.loc["I", "I"] = -1*args.wII
+    idx = pd.IndexSlice
+    if (args.wEE is not None or
+        args.wEI is not None or 
+        args.wIE is not None or 
+        args.wII is not None):
+        weight.loc[idx[:,:,"E"], idx[:,:,"E"]] = args.wEE
+        weight.loc[idx[:,:,"I"], idx[:,:,"E"]] = args.wEI
+        weight.loc[idx[:,:,"E"], idx[:,:,"I"]] = -1*args.wIE
+        weight.loc[idx[:,:,"I"], idx[:,:,"I"]] = -1*args.wII
+    else:
+        weight = load_scale_dict_from_excel(weight)
+    
     for tar_area, src_area in product(area_list, area_list):
         for tar_layer, src_layer in product(layer_list, layer_list):
             for tar_pop, src_pop in product(pop_list, pop_list):
@@ -157,10 +182,8 @@ if __name__ == "__main__":
                     tarPop = neuron_populations[tar_area][tar_pop+layer_map[tar_layer]]
                     srcPop = neuron_populations[src_area][src_pop+layer_map[src_layer]]
                     synNum = SN.loc[tar, src]
-                    wAve = weight.loc[tar, src]
-                    wSd = weight_sd.loc[tar, src]
-                    wAve = weight_test.loc[src_pop, tar_pop] / 1000
-                    wSd = abs(wAve * 0.1)
+                    wAve = weight.loc[tar, src] / 1000
+                    wSd = wAve / 10 / 1000
                     if src_area == tar_area:
                         if src_pop == 'E':
                             meanDelay = net_config['delay_e']

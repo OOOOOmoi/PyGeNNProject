@@ -42,7 +42,7 @@ def visualize_single(suffix, spike_data, duration=1000, drop=200, neurons_per_gr
                     except Exception as e:
                         print(f"Error loading {csv_path}: {e}")
 
-    fig_raster, axs_raster = plt.subplots(2, figsize=(20, 10), sharex=True)
+    fig_raster, axs_raster = plt.subplots(4, figsize=(20, 10), sharex=True)
 
     for area_idx, (area, pop_dict) in enumerate(spike_data.items()):
         current_y_offset = 0
@@ -53,6 +53,7 @@ def visualize_single(suffix, spike_data, duration=1000, drop=200, neurons_per_gr
         group_labels = []
         all_spike = []
         layer_spikes_dict = defaultdict(list)
+        i=1
         for pop, data_chunks in pop_dict.items():
             all_spikes = np.vstack(data_chunks)
             times = all_spikes[:, 0]
@@ -93,8 +94,9 @@ def visualize_single(suffix, spike_data, duration=1000, drop=200, neurons_per_gr
             smoothed_rate, time_bins = smooth_firing_rate(times, total_neurons, sample_bin=sample_bin, drop=drop)
             smoothed_rate_normal = smoothed_rate / max(smoothed_rate)
             time_axis = (time_bins[:-1] + time_bins[1:]) / 2
-            axs_raster[1].plot(time_axis, smoothed_rate_normal, label=pop, color=color)
-
+            axs_raster[i].plot(time_axis, smoothed_rate, label=pop, color=color)
+            axs_raster[3].plot(time_axis, smoothed_rate_normal, label=pop, color=color)
+            i = i+1
 
             avg_rates.append(avg_rate)
             y_ticks.append(current_y_offset + neurons_per_group // 2)
@@ -108,9 +110,11 @@ def visualize_single(suffix, spike_data, duration=1000, drop=200, neurons_per_gr
         ax_raster[0].set_yticks(y_ticks)
         ax_raster[0].set_yticklabels(y_labels)
         ax_raster[0].set_ylabel(f"{area}")
-        ax_raster[1].set_xlabel("Time (ms)")
-        ax_raster[1].set_ylabel("Normalized firing rate")
-        ax_raster[1].legend()
+        ax_raster[1].set_ylabel("firing rate")
+        ax_raster[2].set_ylabel("firing rate")
+        ax_raster[3].set_xlabel("Time (ms)")
+        ax_raster[3].set_ylabel("Normalized firing rate")
+        ax_raster[3].legend()
         if model_name:
             ax_raster[0].set_title(f"{area} Raster - {model_name}")
         else:

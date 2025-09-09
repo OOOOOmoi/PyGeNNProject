@@ -2,7 +2,7 @@ import os
 import yaml
 import pickle
 current_dir = os.path.dirname(__file__)
-data_dir = os.path.join(current_dir, 'out')
+data_dir = os.path.join(current_dir, 'out_100mm2')
 net_dir = os.path.join(data_dir, 'net.yaml')
 
 vis_content = ['']

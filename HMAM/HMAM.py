@@ -90,11 +90,12 @@ if __name__ == "__main__":
     model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
 
 
+    # area_list = net_config['area_list']
     area_list = net_config['area_list'][30]
     if isinstance(area_list, str):
         area_list = [area_list]
-    # layer_list = net_config['layer_list']
-    layer_list = ["IV"]
+    layer_list = net_config['layer_list']
+    # layer_list = ["IV"]
     pop_list = net_config['population_list']
 
 
@@ -114,6 +115,8 @@ if __name__ == "__main__":
 
     NN=get_NN()
     SN, SN_ext = get_SN()
+    if "scaleSyn" in args:
+        SN *= float(args.scaleSyn)
     total_neurons = 0
     weight_ext, weight_ext_sd = get_weight_ext()
     neuron_populations = defaultdict(dict)
@@ -125,6 +128,7 @@ if __name__ == "__main__":
             for pop in pop_list:
                 if (area, layer, pop) in NN.index:
                     popName = area+pop+layer_map[layer]
+                    popName = popName.replace("-", "_")
                     popNum = NN.loc[(area, layer, pop)]
                     print("creating neuron group {popName} with {popNum} neurons".format(popName=popName, popNum=popNum))
                     # if (pop == "E"):
@@ -179,6 +183,7 @@ if __name__ == "__main__":
                     tarName = tar_area+tar_pop+layer_map[tar_layer]
                     srcName = src_area+src_pop+layer_map[src_layer]
                     synName = srcName + "_to_" + tarName
+                    synName = synName.replace("-", "_")
                     tarPop = neuron_populations[tar_area][tar_pop+layer_map[tar_layer]]
                     srcPop = neuron_populations[src_area][src_pop+layer_map[src_layer]]
                     synNum = SN.loc[tar, src]
@@ -232,6 +237,7 @@ if __name__ == "__main__":
     duration=args.duration
     duration_timesteps = int(round(duration / DT_MS))
     ten_percent_timestep = duration_timesteps // 10
+    flag = 0
     print("Loading Model")
     if args.buffer:
         model.load(num_recording_timesteps=args.buffer_size)
@@ -257,6 +263,9 @@ if __name__ == "__main__":
         if args.inSyn:
             temp=record_inSyn_single(syn=synapse_populations[area_list[0]]["I4"][area_list[0]]["E4"])
             inSyn.append(temp)
+        if (model.timestep % ten_percent_timestep) == 0:
+            flag += 1
+            print("%u%%" % (flag * 10))
 
     if args.inSyn:
         all_data=np.vstack(inSyn)
@@ -273,11 +282,12 @@ if __name__ == "__main__":
     # Merge data
     if args.save_spike:
         save_spike(spike_data)
+    visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
     connectom(suffix, SN, weight, NN, area_list, layer_list, pop_list, title='Synaptic Connectivity Overview')
-    # visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
-    #             group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
-    visualize_single(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
-                group_spacing=20, NeuronNumber=NeuronNumber)
+
+    # visualize_single(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+    #             group_spacing=20, NeuronNumber=NeuronNumber)
 
     print("Timing:")
     print("\tBuild:%f" % ((build_end_time - build_start_time) * 1000.0))

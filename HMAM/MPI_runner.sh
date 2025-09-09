@@ -16,10 +16,10 @@ fi
 trap "echo 'Stopping runner...'; kill 0; exit" SIGINT SIGTERM
 
 # 参数范围
-values1=$(seq 0.1 0.01 0.1)
-values2=$(seq 1 0.1 10)
-values3=$(seq 1 0.1 10)
-values4=$(seq 1 0.1 10)
+values1=$(seq 0.5 0.01 0.5)
+values2=$(seq 1 1 10)
+values3=$(seq 1 1 10)
+values4=$(seq 1 1 10)
 
 ngpu=8          # GPU 数量
 per_gpu=5       # 每个 GPU 上允许的最大并行进程数

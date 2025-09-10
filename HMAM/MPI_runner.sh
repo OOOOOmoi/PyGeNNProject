@@ -16,13 +16,13 @@ fi
 trap "echo 'Stopping runner...'; kill 0; exit" SIGINT SIGTERM
 
 # 参数范围
-values1=$(seq 0.5 0.01 0.5)
-values2=$(seq 1 1 10)
-values3=$(seq 1 1 10)
-values4=$(seq 1 1 10)
+values1=$(seq 0.5 0.1 1.5)
+values2=$(seq 10 1 10)
+values3=$(seq 3 1 3)
+values4=$(seq 7 0.1 7)
 
 ngpu=8          # GPU 数量
-per_gpu=5       # 每个 GPU 上允许的最大并行进程数
+per_gpu=1       # 每个 GPU 上允许的最大并行进程数
 count=0
 
 # 任务管理
@@ -35,11 +35,15 @@ for w4 in $values4; do
   gpu_id=$((count % ngpu))
   echo "Launching task $count on GPU $gpu_id"
 
-  python HMAM.py \
-    --wEE $w1 --wEI $w2 --wIE $w3 --wII $w4 \
-    --duration 3000 \
-    --SPARSE \
-    --device $gpu_id &
+  ARGS="--duration 3000"
+  # ARGS="$ARGS --buffer"
+  # ARGS="$ARGS --buffer-size 10"
+  ARGS="$ARGS --SPARSE"
+  ARGS="$ARGS --wEE $w1 --wEI $w2 --wIE $w3 --wII $w4"
+  # ARGS="$ARGS --scaleSyn 0.01"
+  # ARGS="$ARGS --inSyn"
+
+  python HMAM.py $ARGS &
 
   pid=$!
   running+=($pid)

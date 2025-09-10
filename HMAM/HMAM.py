@@ -11,7 +11,9 @@ import pandas as pd
 from collections import defaultdict
 from nested_dict import nested_dict
 from config import net as net_config
-from config import expLIF_dict, input, layer_map, vis_content, get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay, getModelName, remove_dash_from_index_columns
+from config import expLIF_dict, input, layer_map, vis_content, \
+    get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay, \
+    getModelName, remove_dash_from_index_columns, get_ext_rate
 from scipy.stats import norm
 from record import record_spike, save_spike, record_inSyn_single, save_inSyn
 from visual import visualize, generate_unique_suffix
@@ -20,7 +22,7 @@ from connectom import connectom
 from expLIF import expLIF_model
 from dual_exp import dual_exp_model
 DT_MS=0.1
-NUM_THREADS_PER_SPIKE=8
+NUM_THREADS_PER_SPIKE=1
 
 def get_parser():
     parser = ArgumentParser()
@@ -119,6 +121,8 @@ if __name__ == "__main__":
     SN, SN_ext = get_SN()
     SN = remove_dash_from_index_columns(SN)
     SN_ext = remove_dash_from_index_columns(SN_ext)
+    rate_ext = get_ext_rate()
+    rate_ext = remove_dash_from_index_columns(rate_ext)
     if "scaleSyn" in args:
         SN *= float(args.scaleSyn)
     total_neurons = 0
@@ -151,7 +155,7 @@ if __name__ == "__main__":
                         ext_weight = weight_ext.loc[(area, layer, pop)]
                         K = SN_ext.loc[(area, layer, pop)] / popNum
                         rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight)
-                        rate = 10*K
+                        # rate = 10*K
                         poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                         model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
 

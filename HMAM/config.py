@@ -3,7 +3,7 @@ import yaml
 import pickle
 import pandas as pd
 current_dir = os.path.dirname(__file__)
-data_dir = os.path.join(current_dir, 'out_100mm2')
+data_dir = os.path.join(current_dir, 'out')
 net_dir = os.path.join(data_dir, 'net.yaml')
 
 vis_content = ['']
@@ -38,7 +38,7 @@ expLIF_dict = {
     # Membrane time constant .
     'tau_m': 20.0, # ms
     # Time constant of postsynaptic currents .
-    'tau_syn': 0.5, # ms
+    'tau_syn': 2, # ms
     # Refractory period of the neurons after a spike .
     't_ref': 2.0, # ms
     'DeltaT': 5.0, # mV
@@ -86,10 +86,16 @@ def get_weight_ext():
         weight_ext_sd= pickle.load(f)
     return weight_ext, weight_ext_sd
 
+def get_ext_rate():
+    rate_ext_path=os.path.join(data_dir, 'rate_ext.pkl')
+    with open(rate_ext_path, 'rb') as f:
+        rate_ext=pickle.load(f)
+    return rate_ext
+
 def externalRates(param, eta_ext, K, W):
     # neuron parameters
     tau_m_E = param['tau_m']
-    tau_syn_E = param['tau_syn_ex']
+    tau_syn_E = param['tau_syn']
     C_m_E = param['C_m']
     V_th_E = param['V_th']
     E_L_E = param['E_L']

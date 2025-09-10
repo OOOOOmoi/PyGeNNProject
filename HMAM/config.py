@@ -1,6 +1,7 @@
 import os
 import yaml
 import pickle
+import pandas as pd
 current_dir = os.path.dirname(__file__)
 data_dir = os.path.join(current_dir, 'out_100mm2')
 net_dir = os.path.join(data_dir, 'net.yaml')
@@ -131,3 +132,20 @@ def getModelName(args):
     if args.wII is not None:
         model_name += f"_wII{args.wII}"
     return model_name
+
+def remove_dash_from_index_columns(df):
+    # 处理 index
+    if hasattr(df, "index"):
+        if isinstance(df.index, pd.MultiIndex):
+            df.index = df.index.map(lambda x: tuple(s.replace("-", "") for s in x))
+        else:
+            df.index = df.index.str.replace("-", "")
+    
+    # 处理 columns
+    if hasattr(df, "columns"):
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.map(lambda x: tuple(s.replace("-", "") for s in x))
+        else:
+            df.columns = df.columns.str.replace("-", "")
+    
+    return df

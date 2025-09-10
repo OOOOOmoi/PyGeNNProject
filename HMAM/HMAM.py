@@ -11,7 +11,7 @@ import pandas as pd
 from collections import defaultdict
 from nested_dict import nested_dict
 from config import net as net_config
-from config import expLIF_dict, input, layer_map, vis_content, get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay, getModelName
+from config import expLIF_dict, input, layer_map, vis_content, get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay, getModelName, remove_dash_from_index_columns
 from scipy.stats import norm
 from record import record_spike, save_spike, record_inSyn_single, save_inSyn
 from visual import visualize, generate_unique_suffix
@@ -94,6 +94,7 @@ if __name__ == "__main__":
     area_list = net_config['area_list'][30]
     if isinstance(area_list, str):
         area_list = [area_list]
+    area_list = [s.replace("-", "") for s in area_list]
     layer_list = net_config['layer_list']
     # layer_list = ["IV"]
     pop_list = net_config['population_list']
@@ -114,7 +115,10 @@ if __name__ == "__main__":
     )
 
     NN=get_NN()
+    NN = remove_dash_from_index_columns(NN)
     SN, SN_ext = get_SN()
+    SN = remove_dash_from_index_columns(SN)
+    SN_ext = remove_dash_from_index_columns(SN_ext)
     if "scaleSyn" in args:
         SN *= float(args.scaleSyn)
     total_neurons = 0
@@ -128,7 +132,6 @@ if __name__ == "__main__":
             for pop in pop_list:
                 if (area, layer, pop) in NN.index:
                     popName = area+pop+layer_map[layer]
-                    popName = popName.replace("-", "_")
                     popNum = NN.loc[(area, layer, pop)]
                     print("creating neuron group {popName} with {popNum} neurons".format(popName=popName, popNum=popNum))
                     # if (pop == "E"):
@@ -161,7 +164,12 @@ if __name__ == "__main__":
     total_synapses = 0
     synapse_populations = nested_dict()
     weight, weight_sd = get_weight()
+    weight = remove_dash_from_index_columns(weight)
+    weight_sd = remove_dash_from_index_columns(weight_sd)
     delay_cc, delay_cc_sd = get_cc_delay()
+    delay_cc = remove_dash_from_index_columns(delay_cc)
+    delay_cc_sd = remove_dash_from_index_columns(delay_cc_sd)
+    
     idx = pd.IndexSlice
     if (args.wEE is not None or
         args.wEI is not None or 
@@ -183,7 +191,6 @@ if __name__ == "__main__":
                     tarName = tar_area+tar_pop+layer_map[tar_layer]
                     srcName = src_area+src_pop+layer_map[src_layer]
                     synName = srcName + "_to_" + tarName
-                    synName = synName.replace("-", "_")
                     tarPop = neuron_populations[tar_area][tar_pop+layer_map[tar_layer]]
                     srcPop = neuron_populations[src_area][src_pop+layer_map[src_layer]]
                     synNum = SN.loc[tar, src]

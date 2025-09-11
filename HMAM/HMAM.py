@@ -41,6 +41,7 @@ def get_parser():
     parser.add_argument("--wEI", type=float, nargs="?", help="Weight of E to I")
     parser.add_argument("--wIE", type=float, nargs="?", help="Weight of I to E")
     parser.add_argument("--wII", type=float, nargs="?", help="Weight of I to I")
+    parser.add_argument("--AreaIdx", type=int, default=30, nargs="?", help="Area index")
     return parser
 
 def parse_all_args():
@@ -82,7 +83,19 @@ def load_scale_dict_from_excel(weight, filename='specific_scale_syn.xlsx'):
 if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
+    # area_list = net_config['area_list']
+    area_list = net_config['area_list'][args.AreaIdx]
+    if isinstance(area_list, str):
+        area_list = [area_list]
+    area_list = [s.replace("-", "") for s in area_list]
+    layer_list = net_config['layer_list']
+    # layer_list = ["IV"]
+    pop_list = net_config['population_list']
+
     model_name = getModelName(args)
+    if len(area_list) == 1:
+        model_name = f"{model_name}_{area_list[0]}"
+
     model = GeNNModel("float", "HMAM_CODE/"+model_name, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
@@ -90,16 +103,6 @@ if __name__ == "__main__":
     model.timing_enabled = True
     model.default_var_location = VarLocation.HOST_DEVICE
     model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
-
-
-    # area_list = net_config['area_list']
-    area_list = net_config['area_list'][30]
-    if isinstance(area_list, str):
-        area_list = [area_list]
-    area_list = [s.replace("-", "") for s in area_list]
-    layer_list = net_config['layer_list']
-    # layer_list = ["IV"]
-    pop_list = net_config['population_list']
 
 
     exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 2})
@@ -127,6 +130,8 @@ if __name__ == "__main__":
         SN *= float(args.scaleSyn)
     total_neurons = 0
     weight_ext, weight_ext_sd = get_weight_ext()
+    weight_ext = remove_dash_from_index_columns(weight_ext)
+    weight_ext_sd = remove_dash_from_index_columns(weight_ext_sd)
     neuron_populations = defaultdict(dict)
     NeuronNumber = defaultdict(dict)
     poisson_init = {"current": 0.0}
@@ -295,7 +300,7 @@ if __name__ == "__main__":
         save_spike(spike_data)
     visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
                 group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
-    connectom(suffix, SN, weight, NN, area_list, layer_list, pop_list, title='Synaptic Connectivity Overview')
+    connectom(suffix, model_name, SN, weight, NN, area_list, layer_list, pop_list, title='Synaptic Connectivity Overview')
 
     # visualize_single(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
     #             group_spacing=20, NeuronNumber=NeuronNumber)

@@ -11,7 +11,7 @@ def get_custom_colormap():
     colors[0] = [1, 1, 1, 1]  # 将最小值设为白色
     return ListedColormap(colors)
 
-def connectom(suffix, synapse_number, synapse_weight, neuron_number, arealist, layerlist, poplist, title='Synaptic Connectivity Overview'):
+def connectom(suffix, model_name, synapse_number, synapse_weight, neuron_number, arealist, layerlist, poplist, title='Synaptic Connectivity Overview'):
     os.makedirs("output/map", exist_ok=True)
     
     pops = [f"{area}-{pop}-{layer}" for area, layer, pop in itertools.product(arealist, layerlist, poplist)]
@@ -104,4 +104,4 @@ def connectom(suffix, synapse_number, synapse_weight, neuron_number, arealist, l
 
     plt.suptitle(title, fontsize=18)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.savefig(f"output/map/map_{suffix}.png")
+    plt.savefig(f"output/map/map_{model_name}.png")

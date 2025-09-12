@@ -84,7 +84,7 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    area_list = net_config['area_list'][args.AreaIdx]
+    area_list = net_config['area_list'][0:2]
     if isinstance(area_list, str):
         area_list = [area_list]
     area_list = [s.replace("-", "") for s in area_list]
@@ -141,34 +141,36 @@ if __name__ == "__main__":
             for pop in pop_list:
                 if (area, layer, pop) in NN.index:
                     popName = area+pop+layer_map[layer]
-                    popNum = NN.loc[(area, layer, pop)]
-                    print("creating neuron group {popName} with {popNum} neurons".format(popName=popName, popNum=popNum))
-                    # if (pop == "E"):
-                    #     neuronParam = net_config['neuron_params_E']
-                    # else:
-                    #     neuronParam = net_config['neuron_params_I']
-                    neuronParam = expLIF_dict
-                    params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
-                                "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
-                                "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
-                                "TauRefrac": neuronParam['t_ref'], 
-                                "DeltaT": neuronParam['DeltaT'], "VT": neuronParam['VT']}
-                    if not args.poisson:
-                        params["Ioffset"] = input[pop+layer_map[layer]] / 1000
-                    neuron_pop = model.add_neuron_population(popName, popNum, expLIF_model, params, lif_init)
-                    if args.poisson:
-                        ext_weight = weight_ext.loc[(area, layer, pop)]
-                        K = SN_ext.loc[(area, layer, pop)] / popNum
-                        rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight)
-                        # rate = 10*K
-                        poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
-                        model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
-
-                    neuron_pop.spike_recording_enabled = True
-
-                    total_neurons += popNum
+                    popNum = NN.loc[(area, layer, pop)] * 10
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
-                    neuron_populations[area][pop+layer_map[layer]] = neuron_pop
+                    if popNum != 0:
+                        print("creating neuron group {popName} with {popNum} neurons".format(popName=popName, popNum=popNum))
+                        # if (pop == "E"):
+                        #     neuronParam = net_config['neuron_params_E']
+                        # else:
+                        #     neuronParam = net_config['neuron_params_I']
+                        neuronParam = expLIF_dict
+                        params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
+                                    "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
+                                    "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
+                                    "TauRefrac": neuronParam['t_ref'], 
+                                    "DeltaT": neuronParam['DeltaT'], "VT": neuronParam['VT']}
+                        if not args.poisson:
+                            params["Ioffset"] = input[pop+layer_map[layer]] / 1000
+                        neuron_pop = model.add_neuron_population(popName, popNum, expLIF_model, params, lif_init)
+                        if args.poisson:
+                            ext_weight = weight_ext.loc[(area, layer, pop)]
+                            K = SN_ext.loc[(area, layer, pop)] / popNum
+                            rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight)
+                            rate = rate_ext.loc[(area, layer, pop)]
+                            # rate = 10*K
+                            poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
+                            model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
+
+                        neuron_pop.spike_recording_enabled = True
+
+                        total_neurons += popNum
+                        neuron_populations[area][pop+layer_map[layer]] = neuron_pop
                     
     total_synapses = 0
     synapse_populations = nested_dict()
@@ -200,8 +202,6 @@ if __name__ == "__main__":
                     tarName = tar_area+tar_pop+layer_map[tar_layer]
                     srcName = src_area+src_pop+layer_map[src_layer]
                     synName = srcName + "_to_" + tarName
-                    tarPop = neuron_populations[tar_area][tar_pop+layer_map[tar_layer]]
-                    srcPop = neuron_populations[src_area][src_pop+layer_map[src_layer]]
                     synNum = SN.loc[tar, src]
                     wAve = weight.loc[tar, src] / 1000
                     wSd = wAve / 10 / 1000
@@ -216,6 +216,8 @@ if __name__ == "__main__":
                         meanDelay = delay_cc.loc[(src_area, tar_area)]
                         delay_sd = delay_cc_sd.loc[(src_area, tar_area)]
                     if synNum > 0:
+                        tarPop = neuron_populations[tar_area][tar_pop+layer_map[tar_layer]]
+                        srcPop = neuron_populations[src_area][src_pop+layer_map[src_layer]]
                         quantile = 0.9999
                         normal_quantile_cdf = norm.ppf(quantile)
                         max_delay = meanDelay + (delay_sd * normal_quantile_cdf)

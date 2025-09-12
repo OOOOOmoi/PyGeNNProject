@@ -66,7 +66,7 @@ if __name__ == "__main__":
         "DeltaT": single_neuron_dict['DeltaT'],
         "VT": single_neuron_dict['VT']
     }
-    pop = model.add_neuron_population('expLIF_pop', 1, expLIF_model, explif_params, explif_init)
+    pop = model.add_neuron_population('expLIF_pop', 10, expLIF_model, explif_params, explif_init)
     pop.spike_recording_enabled = True
     model.build()
     duration_timesteps = int(round(duration / 0.1))
@@ -75,7 +75,11 @@ if __name__ == "__main__":
     while model.t < duration:
         model.step_time()
         pop.vars["V"].pull_from_device()
-        v=pop.vars["V"].current_values
+        if model.t == 200.0:
+            pop.vars["V"].current_view[0] = -60.0
+            pop.vars["V"].push_to_device()
+        v=pop.vars["V"].current_view
+        # 此处用current_values也可
         V.append(v[0])
 
 fig, ax = plt.subplots(figsize=(8, 3))

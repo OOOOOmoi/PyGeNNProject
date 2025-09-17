@@ -78,6 +78,7 @@ if __name__ == "__main__":
         if model.t == 200.0:
             pop.vars["V"].current_view[0] = -60.0
             pop.vars["V"].push_to_device()
+        print(pop.params["Ioffset"])
         v=pop.vars["V"].current_view
         # 此处用current_values也可
         V.append(v[0])

@@ -38,7 +38,7 @@ expLIF_dict = {
     # Membrane time constant .
     'tau_m': 20.0, # ms
     # Time constant of postsynaptic currents .
-    'tau_syn': 2, # ms
+    'tau_syn_ex': 2, # ms
     # Refractory period of the neurons after a spike .
     't_ref': 2.0, # ms
     'DeltaT': 5.0, # mV
@@ -95,7 +95,7 @@ def get_ext_rate():
 def externalRates(param, eta_ext, K, W):
     # neuron parameters
     tau_m_E = param['tau_m']
-    tau_syn_E = param['tau_syn']
+    tau_syn_E = param['tau_syn_ex']
     C_m_E = param['C_m']
     V_th_E = param['V_th']
     E_L_E = param['E_L']

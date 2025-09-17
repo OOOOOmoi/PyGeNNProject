@@ -84,7 +84,8 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    area_list = net_config['area_list'][0:2]
+    # area_list = net_config['area_list'][0:1]
+    area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
         area_list = [area_list]
     area_list = [s.replace("-", "") for s in area_list]
@@ -126,6 +127,8 @@ if __name__ == "__main__":
     SN_ext = remove_dash_from_index_columns(SN_ext)
     rate_ext = get_ext_rate()
     rate_ext = remove_dash_from_index_columns(rate_ext)
+    if "scaleNeu" in args:
+        NN *= float(args.scaleNeu)
     if "scaleSyn" in args:
         SN *= float(args.scaleSyn)
     total_neurons = 0
@@ -141,23 +144,34 @@ if __name__ == "__main__":
             for pop in pop_list:
                 if (area, layer, pop) in NN.index:
                     popName = area+pop+layer_map[layer]
-                    popNum = NN.loc[(area, layer, pop)] * 10
+                    popNum = NN.loc[(area, layer, pop)]
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
                     if popNum != 0:
                         print("creating neuron group {popName} with {popNum} neurons".format(popName=popName, popNum=popNum))
-                        # if (pop == "E"):
-                        #     neuronParam = net_config['neuron_params_E']
-                        # else:
-                        #     neuronParam = net_config['neuron_params_I']
-                        neuronParam = expLIF_dict
-                        params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
-                                    "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
-                                    "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
-                                    "TauRefrac": neuronParam['t_ref'], 
-                                    "DeltaT": neuronParam['DeltaT'], "VT": neuronParam['VT']}
+                        if ("expLIF" in args):
+                            neuronParam = expLIF_dict
+                        else:
+                            if (pop == "E"):
+                                neuronParam = net_config['neuron_params_E']
+                            else:
+                                neuronParam = net_config['neuron_params_I']
+                        if ("expLIF" in args):
+                            params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
+                                        "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
+                                        "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
+                                        "TauRefrac": neuronParam['t_ref'], 
+                                        "DeltaT": neuronParam['DeltaT'], "VT": neuronParam['VT']}
+                        else:
+                            params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
+                                        "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
+                                        "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
+                                        "TauRefrac": neuronParam['t_ref']}
                         if not args.poisson:
                             params["Ioffset"] = input[pop+layer_map[layer]] / 1000
-                        neuron_pop = model.add_neuron_population(popName, popNum, expLIF_model, params, lif_init)
+                        if ("expLIF" in args):
+                            neuron_pop = model.add_neuron_population(popName, popNum, expLIF_model, params, lif_init)
+                        else:
+                            neuron_pop = model.add_neuron_population(popName, popNum, "LIF", params, lif_init)
                         if args.poisson:
                             ext_weight = weight_ext.loc[(area, layer, pop)]
                             K = SN_ext.loc[(area, layer, pop)] / popNum
@@ -190,9 +204,9 @@ if __name__ == "__main__":
         weight.loc[idx[:,:,"I"], idx[:,:,"E"]] = args.wEI
         weight.loc[idx[:,:,"E"], idx[:,:,"I"]] = -1*args.wIE
         weight.loc[idx[:,:,"I"], idx[:,:,"I"]] = -1*args.wII
-    else:
+    elif ("specificW" in args):
         weight = load_scale_dict_from_excel(weight)
-    
+    syn_group_num = 0
     for tar_area, src_area in product(area_list, area_list):
         for tar_layer, src_layer in product(layer_list, layer_list):
             for tar_pop, src_pop in product(pop_list, pop_list):
@@ -225,6 +239,7 @@ if __name__ == "__main__":
                         # Build distribution for delay parameters
                         d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_delay}
                         total_synapses += synNum
+                        syn_group_num += 1
                         # Build unique synapse name
                         matrix_type = "SPARSE" if args.SPARSE else "PROCEDURAL"
                         if src_pop == 'E':
@@ -247,7 +262,7 @@ if __name__ == "__main__":
                             syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
                         synapse_populations[tar_area][tar_pop+layer_map[tar_layer]][src_area][src_pop+layer_map[src_layer]] = syn_pop
 
-    print("Building Model of %u neurons and %u synapses" % (total_neurons, total_synapses))
+    print("Building Model of %u neurons and %u synapses of %u groups" % (total_neurons, total_synapses, syn_group_num))
     build_start_time = perf_counter()
     model.build()
     build_end_time = perf_counter()

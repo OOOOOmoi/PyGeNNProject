@@ -38,12 +38,13 @@ for w5 in $values5; do
 
   ARGS="--duration 1000"
   # ARGS="$ARGS --buffer"
-  # ARGS="$ARGS --buffer-size 10000"
-  # ARGS="$ARGS --SPARSE"
+  # ARGS="$ARGS --buffer-size 100"
+  ARGS="$ARGS --SPARSE"
   ARGS="$ARGS --wEE $w1 --wEI $w2 --wIE $w3 --wII $w4"
   ARGS="$ARGS --AreaIdx $w5"
   ARGS="$ARGS --device $gpu_id"
   ARGS="$ARGS --poisson"
+  # ARGS="$ARGS --scaleNeu 150"
   # ARGS="$ARGS --scaleSyn 0.01"
   # ARGS="$ARGS --inSyn"
 

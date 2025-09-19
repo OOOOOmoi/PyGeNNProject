@@ -3,7 +3,7 @@ import yaml
 import pickle
 import pandas as pd
 current_dir = os.path.dirname(__file__)
-data_dir = os.path.join(current_dir, 'out_160mm2')
+data_dir = os.path.join(current_dir, 'out_1mm2')
 net_dir = os.path.join(data_dir, 'net.yaml')
 
 vis_content = ['']
@@ -115,10 +115,6 @@ def get_cc_delay():
 
 def getModelName(args):
     model_name = f"{args.duration/1000.0:.1f}s"
-    if args.stim:
-        model_name += f"_stim"
-        model_name += f"_start{args.stim_start/1000:.1f}s"
-        model_name += f"_end{args.stim_end/1000:.1f}s"
     if args.buffer:
         model_name += f"_buffer{args.buffer_size/1000:.1f}s"
     if args.SPARSE:

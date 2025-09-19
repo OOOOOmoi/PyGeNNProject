@@ -27,9 +27,6 @@ NUM_THREADS_PER_SPIKE=1
 def get_parser():
     parser = ArgumentParser()
     parser.add_argument("--duration", type=float, default=1000.0, nargs="?", help="Duration to simulate (ms)")
-    parser.add_argument("--stim", action="store_true", help="Whether to apply a stimulus")
-    parser.add_argument("--stim-start", type=float, default=300, help="start time of stim")
-    parser.add_argument("--stim-end", type=float, default=800, help="end time of stim")
     parser.add_argument("--buffer", action="store_true", help="Whether use buffer store spike")
     parser.add_argument("--buffer-size", type=int, default=100, nargs="?", help="Size of recording buffer")
     parser.add_argument("--SPARSE", action="store_true", help="Whether use sparse connectivity")
@@ -84,7 +81,7 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    # area_list = net_config['area_list'][0:1]
+    # area_list = net_config['area_list'][0:6]
     area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
         area_list = [area_list]
@@ -147,7 +144,6 @@ if __name__ == "__main__":
                     popNum = NN.loc[(area, layer, pop)]
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
                     if popNum != 0:
-                        print("creating neuron group {popName} with {popNum} neurons".format(popName=popName, popNum=popNum))
                         if ("expLIF" in args):
                             neuronParam = expLIF_dict
                         else:
@@ -176,7 +172,7 @@ if __name__ == "__main__":
                             ext_weight = weight_ext.loc[(area, layer, pop)]
                             K = SN_ext.loc[(area, layer, pop)] / popNum
                             rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight)
-                            rate = rate_ext.loc[(area, layer, pop)]
+                            rate = rate_ext.loc[(area, layer, pop)] * 100
                             # rate = 10*K
                             poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                             model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
@@ -217,8 +213,8 @@ if __name__ == "__main__":
                     srcName = src_area+src_pop+layer_map[src_layer]
                     synName = srcName + "_to_" + tarName
                     synNum = SN.loc[tar, src]
-                    wAve = weight.loc[tar, src] / 1000
-                    wSd = wAve / 10 / 1000
+                    wAve = weight.loc[tar, src] /1000
+                    wSd = wAve / 10 /1000
                     if src_area == tar_area:
                         if src_pop == 'E':
                             meanDelay = net_config['delay_e']

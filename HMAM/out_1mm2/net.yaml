@@ -1,0 +1,124 @@
+area_list:
+- ctx-lh-bankssts
+- ctx-lh-caudalanteriorcingulate
+- ctx-lh-caudalmiddlefrontal
+- ctx-lh-cuneus
+- ctx-lh-entorhinal
+- ctx-lh-fusiform
+- ctx-lh-inferiorparietal
+- ctx-lh-inferiortemporal
+- ctx-lh-isthmuscingulate
+- ctx-lh-lateraloccipital
+- ctx-lh-lateralorbitofrontal
+- ctx-lh-lingual
+- ctx-lh-medialorbitofrontal
+- ctx-lh-middletemporal
+- ctx-lh-parahippocampal
+- ctx-lh-paracentral
+- ctx-lh-parsopercularis
+- ctx-lh-parsorbitalis
+- ctx-lh-parstriangularis
+- ctx-lh-pericalcarine
+- ctx-lh-postcentral
+- ctx-lh-posteriorcingulate
+- ctx-lh-precentral
+- ctx-lh-precuneus
+- ctx-lh-rostralanteriorcingulate
+- ctx-lh-rostralmiddlefrontal
+- ctx-lh-superiorfrontal
+- ctx-lh-superiorparietal
+- ctx-lh-superiortemporal
+- ctx-lh-supramarginal
+- ctx-lh-frontalpole
+- ctx-lh-temporalpole
+- ctx-lh-transversetemporal
+- ctx-lh-insula
+- ctx-rh-bankssts
+- ctx-rh-caudalanteriorcingulate
+- ctx-rh-caudalmiddlefrontal
+- ctx-rh-cuneus
+- ctx-rh-entorhinal
+- ctx-rh-fusiform
+- ctx-rh-inferiorparietal
+- ctx-rh-inferiortemporal
+- ctx-rh-isthmuscingulate
+- ctx-rh-lateraloccipital
+- ctx-rh-lateralorbitofrontal
+- ctx-rh-lingual
+- ctx-rh-medialorbitofrontal
+- ctx-rh-middletemporal
+- ctx-rh-parahippocampal
+- ctx-rh-paracentral
+- ctx-rh-parsopercularis
+- ctx-rh-parsorbitalis
+- ctx-rh-parstriangularis
+- ctx-rh-pericalcarine
+- ctx-rh-postcentral
+- ctx-rh-posteriorcingulate
+- ctx-rh-precentral
+- ctx-rh-precuneus
+- ctx-rh-rostralanteriorcingulate
+- ctx-rh-rostralmiddlefrontal
+- ctx-rh-superiorfrontal
+- ctx-rh-superiorparietal
+- ctx-rh-superiortemporal
+- ctx-rh-supramarginal
+- ctx-rh-frontalpole
+- ctx-rh-temporalpole
+- ctx-rh-transversetemporal
+- ctx-rh-insula
+delay_distribution: lognormal_clipped
+delay_e: 1.5
+delay_e_sd: 0.75
+delay_i: 0.75
+delay_i_sd: 0.375
+eta_ext: 1.1
+layer_list:
+- II/III
+- IV
+- V
+- VI
+neuron_model_E: iaf_psc_exp
+neuron_model_I: iaf_psc_exp
+neuron_param_dist_E:
+  C_m:
+    distribution: lognormal
+    rel_sd: 0.0
+  V_th:
+    distribution: lognormal
+    rel_sd: 0.0
+  tau_m:
+    distribution: lognormal
+    rel_sd: 0.0
+neuron_param_dist_I:
+  C_m:
+    distribution: lognormal
+    rel_sd: 0.0
+  V_th:
+    distribution: lognormal
+    rel_sd: 0.0
+  tau_m:
+    distribution: lognormal
+    rel_sd: 0.0
+neuron_params_E:
+  C_m: 220.0
+  E_L: -70.0
+  V_reset: -70.0
+  V_th: -45.0
+  t_ref: 2.0
+  tau_m: 10.0
+  tau_syn_ex: 2.0
+  tau_syn_in: 2.0
+neuron_params_I:
+  C_m: 100.0
+  E_L: -70.0
+  V_reset: -70.0
+  V_th: -45.0
+  t_ref: 2.0
+  tau_m: 10.0
+  tau_syn_ex: 2.0
+  tau_syn_in: 2.0
+p_transmit: 1.0
+population_list:
+- E
+- I

@@ -20,6 +20,7 @@ def plot_firing_rate_curve(rate_smoothed, time_bins, suffix, model_name,
     plt.grid(True)
     plt.tight_layout()
 
+    # 设置输出路径
     if layer is None and pop is not None:
         title = f"{area} - {pop} Firing Rate"
         if model_name:

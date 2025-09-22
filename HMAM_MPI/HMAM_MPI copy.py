@@ -3,7 +3,6 @@ import sys
 from config import expLIF_dict, input, layer_map, vis_content, \
     get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay, \
     getModelName, remove_dash_from_index_columns, get_ext_rate, net
-from visual import visualize
 from record import record_spike
 import numpy as np
 from argparse import ArgumentParser, Namespace
@@ -18,14 +17,11 @@ import pandas as pd
 from collections import defaultdict
 from nested_dict import nested_dict
 from scipy.stats import norm
-from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 NUM_THREADS_PER_SPIKE = 1
 duration = 1000
-DT_MS = 0.1
-duration_timesteps = int(round(duration / DT_MS))
-ten_percent_timestep = duration_timesteps // 10
-buffer_size = 5000
+buffer_size = 1
 
 def split_indices(num_areas, num_gpus):
     # 平均分配索引到 num_gpus 个子列表
@@ -33,9 +29,19 @@ def split_indices(num_areas, num_gpus):
     chunk_size = (num_areas + num_gpus - 1) // num_gpus  # 向上取整
     return [indices[i*chunk_size:(i+1)*chunk_size] for i in range(num_gpus) if indices[i*chunk_size:(i+1)*chunk_size]]
 
-def Part(i, area_list, *args):
-    print(f"start proccess {i}")
-    model = GeNNModel("float", f"HMAM_MPI_CODE/model_on_device{i}", device_select_method=DeviceSelect.MANUAL, manual_device_id=i)
+
+def create_worker(i, idxs, area_list, model_i, NN, rate_ext, SN, weight, delay_cc, weight_ext):
+    area = [area_list[j] for j in idxs]
+    model_i, NeuronNumber_part, neuron_populations_part = create_model(
+        model_i, area, NN, rate_ext, SN, weight, delay_cc, weight_ext
+    )
+    return i, (model_i, NeuronNumber_part, neuron_populations_part)
+
+def simulation_worker(i, model_i, duration, neuron_pops_i, spike_data_i):
+    model_i, spike_data_i = simulation(model_i, duration, neuron_pops_i, spike_data_i)
+    return i, (model_i, spike_data_i)
+
+def create_model(model, area_list, *args):
     NN = args[0]
     rate_ext = args[1]
     SN = args[2]
@@ -138,60 +144,31 @@ def Part(i, area_list, *args):
 
                         if matrix_type=="PROCEDURAL":
                             syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
-    print("Building Model of %u neurons and %u synapses of %u groups on device %u" % (total_neurons, total_synapses, syn_group_num, i))
+    print("Building Model of %u neurons and %u synapses of %u groups" % (total_neurons, total_synapses, syn_group_num))
     model.build()
-    print("Loading Model on device %u" % i)
+    print("Loading Model")
     model.load(num_recording_timesteps=buffer_size)
-    print("Simulating on device %u" % i)
-    spike_data = {
-        area: {pop: [] for pop in neuron_populations[area].keys()}
-        for area in neuron_populations.keys()
-    }
-    flag = 0
+
+    return model, NeuronNumber, neuron_populations
+
+def simulation(model, duration, neuron_populations, spike_data):
     while model.t < duration:
         model.step_time()
-        if not model.timestep % buffer_size:
-            model.pull_recording_buffers_from_device()
-            record_spike(neuron_populations, spike_data)
-        if (model.timestep % ten_percent_timestep) == 0:
-            flag += 1
-            print("%u%%" % (flag * 10))
-
-    return i, spike_data, NeuronNumber
-
-def merge_spike_data(spike_data_blocks):
-    merged = {}
-
-    for block in spike_data_blocks:
-        if block is None:
-            continue
-        for area, pop_dict in block.items():
-            if area not in merged:
-                merged[area] = {}
-            for pop, spikes in pop_dict.items():
-                if pop not in merged[area]:
-                    merged[area][pop] = []
-                merged[area][pop].extend(spikes)   # 把多个 worker 的数据拼接到一起
-    return merged
-
-def split_spike_data_by_area(spike_data):
-    return [{area: pop_dict} for area, pop_dict in spike_data.items()]
-
-def merge_nn_data(NeuronNumber_blocks):
-    merged = {}
-    for block in NeuronNumber_blocks:
-        if block is None:
-            continue
-        for area, pop_dict in block.items():
-            if area not in merged:
-                merged[area] = {}
-            for pop, count in pop_dict.items():
-                if pop not in merged[area]:
-                    merged[area][pop] = 0
-                merged[area][pop] += count   # 把多个 worker 的数据拼接到一起
-    return merged
+        # model.pull_recording_buffers_from_device()
+        # record_spike(neuron_populations, spike_data)
+    return model, spike_data
 
 if __name__ == '__main__':
+    model = []
+    model.append(GeNNModel("float", "HMAM_MPI_CODE/model_on_device0", device_select_method=DeviceSelect.MANUAL, manual_device_id=0))
+    model.append(GeNNModel("float", "HMAM_MPI_CODE/model_on_device1", device_select_method=DeviceSelect.MANUAL, manual_device_id=1))
+    model.append(GeNNModel("float", "HMAM_MPI_CODE/model_on_device2", device_select_method=DeviceSelect.MANUAL, manual_device_id=2))
+    model.append(GeNNModel("float", "HMAM_MPI_CODE/model_on_device3", device_select_method=DeviceSelect.MANUAL, manual_device_id=3))
+    model.append(GeNNModel("float", "HMAM_MPI_CODE/model_on_device4", device_select_method=DeviceSelect.MANUAL, manual_device_id=4))
+    model.append(GeNNModel("float", "HMAM_MPI_CODE/model_on_device5", device_select_method=DeviceSelect.MANUAL, manual_device_id=5))
+    model.append(GeNNModel("float", "HMAM_MPI_CODE/model_on_device6", device_select_method=DeviceSelect.MANUAL, manual_device_id=6))
+    model.append(GeNNModel("float", "HMAM_MPI_CODE/model_on_device7", device_select_method=DeviceSelect.MANUAL, manual_device_id=7))
+
     area_list = net["area_list"]
     area_list = [s.replace("-", "") for s in area_list]
 
@@ -217,35 +194,50 @@ if __name__ == '__main__':
 
 
     num_workers = 8
-    spike_data_blocks = [None] * num_workers
-    NeuronNumber_blocks = [None] * num_workers
-    # 用多进程执行
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        futures = [
-            executor.submit(
-                Part,
-                i,
-                [area_list[j] for j in split_idx[i]],
-                NN, rate_ext, SN, weight, delay_cc, weight_ext
-            )
-            for i in range(num_workers)
-        ]
+    NeuronNumber = [None] * num_workers
+    neuron_populations = [None] * num_workers
+
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {}
+        for i in range(num_workers):
+            f = executor.submit(create_worker, i, split_idx[i], area_list, model[i], NN, rate_ext, SN, weight, delay_cc, weight_ext)
+            futures[f] = i
 
         for future in as_completed(futures):
+            i = futures[future]
             try:
-                i, spike_data_i, NeuronNumber_i = future.result()   # 这里解包返回值
+                i, (model_i, NeuronNumber_part, neuron_populations_part) = future.result()
             except Exception as e:
                 import traceback
-                print("Worker raised exception:", e)
+                print(f"Worker {i} raised exception:", e)
                 traceback.print_exc()
                 continue
 
-            spike_data_blocks[i] = spike_data_i
-            NeuronNumber_blocks[i] = NeuronNumber_i
+            # 把线程返回的 GeNNModel 放回列表
+            model[i] = model_i
+            NeuronNumber[i] = NeuronNumber_part
+            neuron_populations[i] = neuron_populations_part
 
-    all_spike_data = merge_spike_data(spike_data_blocks)
-    all_nn_data = merge_nn_data(NeuronNumber_blocks)
-    split_spike_data = split_spike_data_by_area(all_spike_data)
-    for area_dict in split_spike_data:
-        visualize(suffix="test", spike_data=area_dict, duration=1000,
-                model_name="HMAM", NeuronNumber=all_nn_data)
+    spike_data_blocks = [
+        {
+            area: {pop: [] for pop in neuron_populations[i][area].keys()}
+            for area in neuron_populations[i].keys()
+        }
+        for i in range(num_workers)
+    ]
+    
+    # with ThreadPoolExecutor(max_workers=num_workers) as executor:
+    #     futures = [
+    #         executor.submit(simulation_worker, i, model[i],
+    #                         neuron_populations[i], duration,
+    #                         spike_data_blocks[i])
+    #         for i in range(num_workers)
+    #     ]
+
+    #     for future in as_completed(futures):
+    #         i, (model_i, spike_data_i) = future.result()
+    #         model[i] = model_i
+    #         spike_data_blocks[i] = spike_data_i
+
+    for i in range(num_workers):
+        model[i], spike_data_blocks[i] = simulation(model[i], duration, neuron_populations[i], spike_data_blocks[i])

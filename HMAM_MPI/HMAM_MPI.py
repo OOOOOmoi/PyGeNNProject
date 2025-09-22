@@ -1,5 +1,8 @@
 import os
 import sys
+import time
+import pickle
+import uuid
 from config import expLIF_dict, input, layer_map, vis_content, \
     get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay, \
     getModelName, remove_dash_from_index_columns, get_ext_rate, net
@@ -19,6 +22,7 @@ from collections import defaultdict
 from nested_dict import nested_dict
 from scipy.stats import norm
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
+from multiprocessing import Process, Queue, Pipe
 from collections import defaultdict
 NUM_THREADS_PER_SPIKE = 1
 duration = 1000
@@ -33,15 +37,10 @@ def split_indices(num_areas, num_gpus):
     chunk_size = (num_areas + num_gpus - 1) // num_gpus  # 向上取整
     return [indices[i*chunk_size:(i+1)*chunk_size] for i in range(num_gpus) if indices[i*chunk_size:(i+1)*chunk_size]]
 
-def Part(i, area_list, *args):
+def Part(i, area_list, NN, rate_ext, SN, weight, delay_cc, weight_ext,
+         to_master: Queue, from_master: Queue):
     print(f"start proccess {i}")
     model = GeNNModel("float", f"HMAM_MPI_CODE/model_on_device{i}", device_select_method=DeviceSelect.MANUAL, manual_device_id=i)
-    NN = args[0]
-    rate_ext = args[1]
-    SN = args[2]
-    weight = args[3]
-    delay_cc = args[4]
-    weight_ext = args[5]
     if isinstance(area_list, str):
         area_list = [area_list]
     model.dt = 0.1
@@ -55,7 +54,7 @@ def Part(i, area_list, *args):
     for area in area_list:
         for layer in layer_list:
             for pop in pop_list:
-                if (area, layer, pop) in args[0].index:
+                if (area, layer, pop) in NN.index:
                     popName = area+pop+layer_map[layer]
                     popNum = NN.loc[(area, layer, pop)]
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
@@ -143,21 +142,56 @@ def Part(i, area_list, *args):
     print("Loading Model on device %u" % i)
     model.load(num_recording_timesteps=buffer_size)
     print("Simulating on device %u" % i)
-    spike_data = {
-        area: {pop: [] for pop in neuron_populations[area].keys()}
-        for area in neuron_populations.keys()
-    }
     flag = 0
     while model.t < duration:
         model.step_time()
+
         if not model.timestep % buffer_size:
+            spike_data_temp = {
+                area: {pop: [] for pop in neuron_populations[area].keys()}
+                for area in neuron_populations.keys()
+            }
             model.pull_recording_buffers_from_device()
-            record_spike(neuron_populations, spike_data)
+            record_spike(neuron_populations, spike_data_temp)
+
+            # 把当前进程的数据发给主进程
+            msg = {
+                "worker_id": i,
+                "spike_data": spike_data_temp,
+                "NeuronNumber": NeuronNumber,
+                "timestamp": time.perf_counter()
+            }
+
+            to_master.put(msg)
+
+            # 等待主进程的新指令（同步点）
+            msg = from_master.get()
+            recv_time = time.perf_counter()
+            if msg["type"] == "continue":
+                to_master.put({
+                    "worker_id": i,
+                    "ack": True,
+                    "recv_time": recv_time,
+                    "send_tag": msg["send_tag"]   # 用于匹配
+                })
+                # 可以更新模型参数，例如 rate 或 weight
+                updates = msg.get("updates", None)
+                if updates:
+                    # TODO: 根据 updates 修改模型参数
+                    pass
+            elif msg["type"] == "stop":
+                to_master.put({
+                    "worker_id": i,
+                    "ack": True,
+                    "recv_time": recv_time,
+                    "send_tag": msg["send_tag"]
+                })
+                break
+
         if (model.timestep % ten_percent_timestep) == 0:
             flag += 1
-            print("%u%%" % (flag * 10))
+            print(f"{i}-th {flag * 10}%")
 
-    return i, spike_data, NeuronNumber
 
 def merge_spike_data(spike_data_blocks):
     merged = {}
@@ -219,33 +253,114 @@ if __name__ == '__main__':
     num_workers = 8
     spike_data_blocks = [None] * num_workers
     NeuronNumber_blocks = [None] * num_workers
-    # 用多进程执行
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        futures = [
-            executor.submit(
-                Part,
-                i,
-                [area_list[j] for j in split_idx[i]],
-                NN, rate_ext, SN, weight, delay_cc, weight_ext
-            )
-            for i in range(num_workers)
-        ]
+    parent_conns, child_conns = zip(*[Pipe() for _ in range(num_workers)])
+    num_workers = 8
+    to_master_queues = []
+    from_master_queues = []
+    processes = []
 
-        for future in as_completed(futures):
-            try:
-                i, spike_data_i, NeuronNumber_i = future.result()   # 这里解包返回值
-            except Exception as e:
-                import traceback
-                print("Worker raised exception:", e)
-                traceback.print_exc()
-                continue
+    # 创建双向队列
+    for i in range(num_workers):
+        to_master = Queue()
+        from_master = Queue()
+        to_master_queues.append(to_master)
+        from_master_queues.append(from_master)
 
-            spike_data_blocks[i] = spike_data_i
-            NeuronNumber_blocks[i] = NeuronNumber_i
+        p = Process(target=Part,
+                    args=(i,
+                          [area_list[j] for j in split_idx[i]],
+                          NN, rate_ext, SN, weight, delay_cc, weight_ext,
+                          to_master, from_master))
+        p.start()
+        processes.append(p)
 
-    all_spike_data = merge_spike_data(spike_data_blocks)
-    all_nn_data = merge_nn_data(NeuronNumber_blocks)
-    split_spike_data = split_spike_data_by_area(all_spike_data)
-    for area_dict in split_spike_data:
-        visualize(suffix="test", spike_data=area_dict, duration=1000,
-                model_name="HMAM", NeuronNumber=all_nn_data)
+    # 主循环
+    running = True
+    step = 0
+    max_steps = duration_timesteps // buffer_size
+    while running:
+        spike_data_blocks = []
+        NeuronNumber_blocks = []
+
+        # 等待所有子进程提交本轮数据
+        for i in range(num_workers):
+            msg = to_master_queues[i].get()
+            recv_time = time.perf_counter()
+            
+            # 🔹 计算通信延迟
+            latency = recv_time - msg["timestamp"]
+
+            # 🔹 估算消息大小（字节数）
+            data_size = len(pickle.dumps(msg))
+            speed_MBps = data_size / (latency * 1024 * 1024)
+
+            print(f"[Round] Worker {msg['worker_id']} -> 主进程: "
+                f"延迟 {latency*1000:.3f} ms, "
+                f"速度 {speed_MBps:.2f} MB/s, "
+                f"大小 {data_size/1024:.1f} KB")
+
+            spike_data_blocks.append(msg["spike_data"])
+            NeuronNumber_blocks.append(msg["NeuronNumber"])
+
+        # ---- 合并并统计 ----
+        all_spike_data = merge_spike_data(spike_data_blocks)
+        all_nn_data = merge_nn_data(NeuronNumber_blocks)
+
+        processed_data = {
+            "rate": {},
+            "spike_count": {}
+        }
+        for area, pop_dict in all_spike_data.items():
+            processed_data["rate"][area] = {}
+            processed_data["spike_count"][area] = {}
+            for pop, data_chunks in pop_dict.items():
+                if not data_chunks:
+                    processed_data["rate"][area][pop] = 0.0
+                    processed_data["spike_count"][area][pop] = 0
+                    continue
+                all_spikes = np.vstack(data_chunks)
+                spike_count = all_spikes.shape[0]
+                num_neurons = all_nn_data[area][pop]
+                spike_rate = spike_count / num_neurons * 1000
+                processed_data["rate"][area][pop] = spike_rate
+                processed_data["spike_count"][area][pop] = spike_count
+
+        # 广播回子进程
+        for q in from_master_queues:
+            q.put({"type": "continue", "updates": processed_data})
+
+        step += 1
+        if step >= max_steps:
+            msg_type = "stop"
+        else:
+            msg_type = "continue"
+
+        send_time = time.perf_counter()
+        send_tag = str(uuid.uuid4())   # 给每次广播加一个唯一 tag
+        msg = {"type": msg_type, "updates": processed_data, "send_tag": send_tag,
+            "timestamp": send_time}
+
+        for q in from_master_queues:
+            q.put(msg)
+
+        # ---- 等待确认，计算主进程→子进程延迟 ----
+        for i in range(num_workers):
+            ack_msg = to_master_queues[i].get()
+            if ack_msg.get("ack") and ack_msg["send_tag"] == send_tag:
+                latency = ack_msg["recv_time"] - send_time
+                data_size = len(pickle.dumps(msg))
+                speed_MBps = data_size / (latency * 1024 * 1024)
+                print(f"[Round {step}] 主进程 -> Worker {ack_msg['worker_id']}: "
+                    f"延迟 {latency*1000:.3f} ms, "
+                    f"速度 {speed_MBps:.2f} MB/s, "
+                    f"大小 {data_size/1024:.1f} KB")
+
+    for p in processes:
+        p.join()
+    print("所有子进程已结束，主进程退出。")
+    # all_spike_data = merge_spike_data(spike_data_blocks)
+    # all_nn_data = merge_nn_data(NeuronNumber_blocks)
+    # split_spike_data = split_spike_data_by_area(all_spike_data)
+    # for area_dict in split_spike_data:
+    #     visualize(suffix="test", spike_data=area_dict, duration=1000,
+    #             model_name="HMAM", NeuronNumber=all_nn_data)

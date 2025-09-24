@@ -3,7 +3,7 @@ from argparse import ArgumentParser, Namespace
 import string
 import pygenn
 from pygenn import (GeNNModel, VarLocation, init_postsynaptic,
-                    init_sparse_connectivity, init_weight_update, init_var)
+                    init_sparse_connectivity, init_weight_update, init_var, PlogSeverity)
 from pygenn.cuda_backend import DeviceSelect
 from time import perf_counter
 from itertools import product
@@ -81,8 +81,8 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    # area_list = net_config['area_list'][0:6]
-    area_list = net_config['area_list'][int(args.AreaIdx)]
+    area_list = net_config['area_list'][0:1]
+    # area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
         area_list = [area_list]
     area_list = [s.replace("-", "") for s in area_list]
@@ -94,7 +94,9 @@ if __name__ == "__main__":
     if len(area_list) == 1:
         model_name = f"{model_name}_{area_list[0]}"
 
-    model = GeNNModel("float", "HMAM_CODE/"+model_name, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
+    model = GeNNModel("float", "HMAM_CODE/"+model_name,
+                      device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device,
+                      runtime_log_level=PlogSeverity.DEBUG)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
     model.default_narrow_sparse_ind_enabled = True

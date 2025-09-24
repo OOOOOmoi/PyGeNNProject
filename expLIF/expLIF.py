@@ -76,17 +76,17 @@ if __name__ == "__main__":
         model.step_time()
         pop.vars["V"].pull_from_device()
         if model.t == 200.0:
-            pop.vars["V"].current_view[0] = -60.0
+            pop.vars["V"].current_view[:] -= 60.0
             pop.vars["V"].push_to_device()
-        print(pop.params["Ioffset"])
-        v=pop.vars["V"].current_view
+        # print(pop.params["Ioffset"])
+        v=pop.vars["V"].current_view.copy()
         # 此处用current_values也可
-        V.append(v[0])
+        V.append(v)
 
 fig, ax = plt.subplots(figsize=(8, 3))
 ax.set_xlabel("Time step (0.1 ms)")
 ax.set_ylabel("Membrane potential (mV)")
-ax.plot(V, color='blue')  # 用 ax.plot 而不是 plt.plot
+ax.plot(V, color='blue')
 
 plt.tight_layout()
 plt.savefig("single_neuron_v.png")

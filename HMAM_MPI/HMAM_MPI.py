@@ -28,7 +28,7 @@ duration = 1000
 DT_MS = 0.1
 duration_timesteps = int(round(duration / DT_MS))
 ten_percent_timestep = duration_timesteps // 10
-buffer_size = 1000
+buffer_size = 10000
 
 def split_indices(num_areas, num_gpus):
     # 平均分配索引到 num_gpus 个子列表
@@ -314,6 +314,8 @@ if __name__ == '__main__':
 
     print("所有子进程已结束，主进程退出。")
     final_spike_data = merge_spike_data(all_steps_spike_data)
-    for area_dict in final_spike_data:
-        visualize(suffix="test", spike_data=area_dict, duration=1000,
+    for area, area_dict in final_spike_data.items():
+        spike_data_temp = {}
+        spike_data_temp[area] = area_dict
+        visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
                 model_name="HMAM", NeuronNumber=NeuronNumber)

@@ -232,9 +232,9 @@ if __name__ == '__main__':
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
 
     num_gpus = 8
-    procs_per_gpu = 2   # 假设每个GPU跑2个进程
+    procs_per_gpu = 4   # 假设每个GPU跑2个进程
     num_workers = num_gpus * procs_per_gpu
-    split_idx = split_indices(16,num_workers)
+    split_idx = split_indices(68,num_workers)
 
     to_master_queues = []
     from_master_queues = []

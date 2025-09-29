@@ -62,7 +62,7 @@ def merge_spike_data(spike_data_blocks):
     return merged
 
 # ---------------- Worker Part (几乎照搬你的 Part 逻辑) ----------------
-def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, delay_cc_sd, weight_ext):
+def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, weight_ext):
     """
     worker_rank: MPI rank (>=1)
     gpu_id: GPU id on local node to bind (int)
@@ -139,7 +139,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, del
                             meanDelay = net['delay_i']; delay_sd = net['delay_i_sd']
                     else:
                         meanDelay = delay_cc.loc[(src_area, tar_area)]
-                        delay_sd = delay_cc_sd.loc[(src_area, tar_area)]
+                        delay_sd = meanDelay / 10
                     if synNum > 0:
                         tarPop = neuron_populations[tar_area][tar_pop+layer_map[tar_layer]]
                         srcPop = neuron_populations[src_area][src_pop+layer_map[src_layer]]
@@ -329,4 +329,4 @@ if __name__ == "__main__":
         local_gpu_id = (rank - 1) % NUM_GPUS
         assigned_areas = [area_list[j] for j in split_idx[worker_rank - 1]]
         # call Part to build model & run
-        Part(worker_rank, local_gpu_id, assigned_areas, NN, rate_ext, SN, weight, delay_cc, delay_cc_sd, weight_ext)
+        Part(worker_rank, local_gpu_id, assigned_areas, NN, rate_ext, SN, weight, delay_cc, weight_ext)

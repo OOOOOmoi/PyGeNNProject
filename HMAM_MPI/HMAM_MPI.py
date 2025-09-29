@@ -104,7 +104,7 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
                             delay_sd = net['delay_i_sd']
                     else:
                         meanDelay = delay_cc.loc[(src_area, tar_area)]
-                        delay_sd = delay_cc_sd.loc[(src_area, tar_area)]
+                        delay_sd = meanDelay / 10
                     if synNum > 0:
                         tarPop = neuron_populations[tar_area][tar_pop+layer_map[tar_layer]]
                         srcPop = neuron_populations[src_area][src_pop+layer_map[src_layer]]

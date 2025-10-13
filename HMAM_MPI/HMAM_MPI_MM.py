@@ -317,7 +317,7 @@ if __name__ == "__main__":
     NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, area_list = comm.bcast(shared, root=0)
 
     # compute area splits among workers (global)
-    split_idx = split_indices(68, num_workers)  # splits[i] assigned to worker rank=i+1
+    split_idx = split_indices(16, num_workers)  # splits[i] assigned to worker rank=i+1
 
     if rank == 0:
         # master main

@@ -254,7 +254,7 @@ def Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global):
                 all_spikes = np.vstack(data_chunks)
                 spike_count = all_spikes.shape[0]
                 num_neurons = int(NeuronNumber_global[area][pop])
-                spike_rate = spike_count / num_neurons * 1000.0
+                spike_rate = spike_count / num_neurons / duration * 1000.0
                 processed_data["rate"][area][pop] = spike_rate
                 processed_data["spike_count"][area][pop] = spike_count
                 print(f"[MASTER] {area} {pop} -> rate {spike_rate:.3f} Hz, count {spike_count}", flush=True)
@@ -317,7 +317,7 @@ if __name__ == "__main__":
     NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, area_list = comm.bcast(shared, root=0)
 
     # compute area splits among workers (global)
-    split_idx = split_indices(16, num_workers)  # splits[i] assigned to worker rank=i+1
+    split_idx = split_indices(68, num_workers)  # splits[i] assigned to worker rank=i+1
 
     if rank == 0:
         # master main

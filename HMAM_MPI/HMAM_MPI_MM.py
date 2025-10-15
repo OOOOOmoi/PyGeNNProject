@@ -29,7 +29,7 @@ duration = 1000
 DT_MS = 0.1
 duration_timesteps = int(round(duration / DT_MS))
 ten_percent_timestep = duration_timesteps // 10
-buffer_size = 10000   # 建议不要设太小（1 会严重拖慢并行效率）
+buffer_size = 1   # 建议不要设太小（1 会严重拖慢并行效率）
 # -----------------------------------------------------
 
 # MPI init
@@ -48,6 +48,23 @@ def split_indices(num_areas, num_workkers):
     chunk_size = (num_areas + num_workkers - 1) // num_workkers  # 向上取整
     return [indices[i*chunk_size:(i+1)*chunk_size] for i in range(num_workkers) if indices[i*chunk_size:(i+1)*chunk_size]]
 
+def estimate_offset_master_peer(comm, peer, niter=10):
+    offsets = []
+    rtts = []
+    for i in range(niter):
+        t0 = MPI.Wtime()
+        comm.send(None, dest=peer, tag=3000+i)   # ping
+        t1 = comm.recv(source=peer, tag=3000+i)  # t1 is worker's recv-time (worker sends it)
+        t2 = MPI.Wtime()
+        rtt = t2 - t0
+        offset = (t0 + t2) / 2.0 - t1
+        offsets.append(offset)
+        rtts.append(rtt)
+    # choose offset corresponding to minimal RTT samples to reduce asymmetry effect
+    k = max(1, niter//4)
+    idx = sorted(range(len(rtts)), key=lambda i: rtts[i])[:k]
+    avg_offset = sum(offsets[i] for i in idx) / len(idx)
+    return avg_offset
 
 def merge_spike_data(spike_data_blocks):
     merged = {}
@@ -105,13 +122,17 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
                         neuron_pop = model.add_neuron_population(popName, popNum, "LIF", params, lif_init)
 
                         ext_weight = weight_ext.loc[(area, layer, pop)]
-                        rate = rate_ext.loc[(area, layer, pop)] * 100
+                        rate = rate_ext.loc[(area, layer, pop)] * 1000
                         poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                         model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
 
                         neuron_pop.spike_recording_enabled = True
                         total_neurons += popNum
                         neuron_populations[area][pop + layer_map[layer]] = neuron_pop
+    # for update 
+    # need sn to all assign areas
+    weight_local = weight.loc(axis=1)[area_list,:,:]
+    sn_local = SN.loc(axis=1)[area_list,:,:]
 
     # synapse creation (按原逻辑)
     exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 2})
@@ -190,7 +211,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
                 "worker_rank": worker_rank,
                 "spike_data": spike_data_temp,
                 "NeuronNumber": NeuronNumber_local,
-                "timestamp_sent": perf_counter()
+                "timestamp_sent": MPI.Wtime()
             }
             # all workers call gather, master will get list
             comm.gather(msg, root=0)
@@ -204,6 +225,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
             updates = ctrl.get("updates", None)
             if updates:
                 # apply update logic if needed (example: reading updates["rate"])
+                rate_info = updates["rate"]
                 pass
 
         if (model.timestep % ten_percent_timestep) == 0:
@@ -218,7 +240,7 @@ def Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global):
     max_steps = duration_timesteps // buffer_size
     step = 0
     all_steps_spike_data = []
-
+    offsets = {peer: estimate_offset_master_peer(comm, peer, niter=12) for peer in range(1, size)}
     print("[MASTER] enter main loop", flush=True)
     while step < max_steps:
         step += 1
@@ -230,9 +252,10 @@ def Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global):
         # compute latency / size and collect spike blocks
         spike_blocks = []
         for msg in worker_msgs:
-            recv_time = perf_counter()
-            ts = msg.get("timestamp_sent", None)
-            latency = (recv_time - ts) if ts is not None else None
+            recv_time = MPI.Wtime()
+            ts_worker = msg["timestamp_sent"]
+            corrected = ts_worker + offsets[msg["worker_rank"]]
+            latency = recv_time - corrected
             data_size = len(pickle.dumps(msg.get("spike_data", {})))
             speed = data_size / (latency * 1024 * 1024) if (latency and latency > 0) else float('inf')
             print(f"[MASTER][step {step}] from worker {msg.get('worker_rank')} - latency {latency*1000 if latency else None:.3f} ms, size {data_size/1024:.1f} KB, speed {speed:.2f} MB/s", flush=True)
@@ -257,7 +280,7 @@ def Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global):
                 spike_rate = spike_count / num_neurons / duration * 1000.0
                 processed_data["rate"][area][pop] = spike_rate
                 processed_data["spike_count"][area][pop] = spike_count
-                print(f"[MASTER] {area} {pop} -> rate {spike_rate:.3f} Hz, count {spike_count}", flush=True)
+                # print(f"[MASTER] {area} {pop} -> rate {spike_rate:.3f} Hz, count {spike_count}", flush=True)
 
         # broadcast updates to all workers (bcast blocks until all workers call bcast)
         ctrl_msg = {"type": "continue", "updates": processed_data, "step": step}
@@ -317,7 +340,7 @@ if __name__ == "__main__":
     NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, area_list = comm.bcast(shared, root=0)
 
     # compute area splits among workers (global)
-    split_idx = split_indices(16, num_workers)  # splits[i] assigned to worker rank=i+1
+    split_idx = split_indices(68, num_workers)  # splits[i] assigned to worker rank=i+1
 
     if rank == 0:
         # master main
@@ -327,6 +350,6 @@ if __name__ == "__main__":
         worker_rank = rank
         # map to gpu id (assume rank distribution per node is contiguous)
         local_gpu_id = (rank - 1) % NUM_GPUS
-        assigned_areas = [area_list[j] for j in split_idx[worker_rank - 1]]
+        assigned_areas = [area_list[j-1] for j in split_idx[worker_rank - 1]]
         # call Part to build model & run
         Part(worker_rank, local_gpu_id, assigned_areas, NN, rate_ext, SN, weight, delay_cc, weight_ext)

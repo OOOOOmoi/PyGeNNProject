@@ -236,11 +236,10 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
 
 
 # ---------------- Master ----------------
-def Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global):
+def Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, offsets):
     max_steps = duration_timesteps // buffer_size
     step = 0
     all_steps_spike_data = []
-    offsets = {peer: estimate_offset_master_peer(comm, peer, niter=12) for peer in range(1, size)}
     print("[MASTER] enter main loop", flush=True)
     while step < max_steps:
         step += 1
@@ -253,9 +252,11 @@ def Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global):
         spike_blocks = []
         for msg in worker_msgs:
             recv_time = MPI.Wtime()
-            ts_worker = msg["timestamp_sent"]
-            corrected = ts_worker + offsets[msg["worker_rank"]]
-            latency = recv_time - corrected
+            ts = msg["timestamp_sent"]
+            wrk = msg.get("worker_rank")
+            offset = offsets.get(wrk, 0.0)
+            ts_corrected = ts + offset if ts is not None else None
+            latency = (recv_time - ts_corrected) if ts_corrected else None
             data_size = len(pickle.dumps(msg.get("spike_data", {})))
             speed = data_size / (latency * 1024 * 1024) if (latency and latency > 0) else float('inf')
             print(f"[MASTER][step {step}] from worker {msg.get('worker_rank')} - latency {latency*1000 if latency else None:.3f} ms, size {data_size/1024:.1f} KB, speed {speed:.2f} MB/s", flush=True)
@@ -333,18 +334,32 @@ if __name__ == "__main__":
                         NeuronNumber_global[area][pop + layer_map[layer]] = popNum
 
         shared = (NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, area_list)
+
+        # === 新增：偏移估算 ===
+        print("[MASTER] estimating clock offsets ...", flush=True)
+        offsets = {}
+        for peer in range(1, size):
+            offsets[peer] = estimate_offset_master_peer(comm, peer)
+            print(f"  offset to rank {peer}: {offsets[peer]:+.6f} sec", flush=True)
+        print("[MASTER] clock offset estimation done.", flush=True)
     else:
         shared = None
+        offsets = None
+        # respond to master offset requests
+        for i in range(20):  # support up to 20 pings
+            msg = comm.recv(source=0, tag=9000 + i)
+            comm.send(MPI.Wtime(), dest=0, tag=9000 + i)
 
     # broadcast shared data (master -> all)
     NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, area_list = comm.bcast(shared, root=0)
+    offsets = comm.bcast(offsets, root=0)
 
     # compute area splits among workers (global)
     split_idx = split_indices(68, num_workers)  # splits[i] assigned to worker rank=i+1
 
     if rank == 0:
         # master main
-        Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global)
+        Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, offsets)
     else:
         # worker
         worker_rank = rank

@@ -1,5 +1,5 @@
 from mpi4py import MPI
-
+import time
 
 
 def estimate_offset_master_peer(comm, peer, niter=10):
@@ -25,10 +25,27 @@ rank = comm.Get_rank()
 size = comm.Get_size()   # 包含 master
 num_workers = max(0, size - 1)
 
+# === 新增：偏移估算 ===
 if rank == 0:
     print("[MASTER] estimating clock offsets ...", flush=True)
     offsets = {}
     for peer in range(1, size):
         offsets[peer] = estimate_offset_master_peer(comm, peer)
         print(f"  offset to rank {peer}: {offsets[peer]:+.6f} sec", flush=True)
+    # 通知 worker 停止 offset 响应
+    for peer in range(1, size):
+        comm.send(None, dest=peer, tag=9999)
     print("[MASTER] clock offset estimation done.", flush=True)
+else:
+    # === WORKER offset 响应阶段 ===
+    status = MPI.Status()
+    while True:
+        if comm.Iprobe(source=0, tag=MPI.ANY_TAG, status=status):
+            tag = status.Get_tag()
+            if tag == 9999:
+                break  # offset阶段结束
+            _ = comm.recv(source=0, tag=tag)
+            comm.send(MPI.Wtime(), dest=0, tag=tag)
+        else:
+            time.sleep(0.001)
+    offsets = None

@@ -336,19 +336,28 @@ if __name__ == "__main__":
         shared = (NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, area_list)
 
         # === 新增：偏移估算 ===
-        print("[MASTER] estimating clock offsets ...", flush=True)
         offsets = {}
         for peer in range(1, size):
             offsets[peer] = estimate_offset_master_peer(comm, peer)
             print(f"  offset to rank {peer}: {offsets[peer]:+.6f} sec", flush=True)
+        # 通知 worker 停止 offset 响应
+        for peer in range(1, size):
+            comm.send(None, dest=peer, tag=9999)
         print("[MASTER] clock offset estimation done.", flush=True)
     else:
         shared = None
+        # === WORKER offset 响应阶段 ===
+        status = MPI.Status()
+        while True:
+            if comm.Iprobe(source=0, tag=MPI.ANY_TAG, status=status):
+                tag = status.Get_tag()
+                if tag == 9999:
+                    break  # offset阶段结束
+                _ = comm.recv(source=0, tag=tag)
+                comm.send(MPI.Wtime(), dest=0, tag=tag)
+            else:
+                time.sleep(0.001)
         offsets = None
-        # respond to master offset requests
-        for i in range(20):  # support up to 20 pings
-            msg = comm.recv(source=0, tag=9000 + i)
-            comm.send(MPI.Wtime(), dest=0, tag=9000 + i)
 
     # broadcast shared data (master -> all)
     NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, area_list = comm.bcast(shared, root=0)

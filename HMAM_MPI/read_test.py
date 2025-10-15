@@ -1,4 +1,4 @@
-from config import get_SN, get_weight, remove_dash_from_index_columns, net
+from config import get_SN, get_weight, remove_dash_from_index_columns, get_weight_ext, get_ext_rate, net
 
 def split_indices(num_areas, num_workkers):
     # 平均分配索引到 num_gpus 个子列表
@@ -10,7 +10,9 @@ SN, SN_ext = get_SN()
 SN = remove_dash_from_index_columns(SN)
 weight, weight_sd = get_weight()
 weight = remove_dash_from_index_columns(weight)
-
+weight_ext, weight_ext_sd = get_weight_ext()
+rate_ext = get_ext_rate()
+rate_ext = remove_dash_from_index_columns(rate_ext)
 area_list = net['area_list']
 area_list = [s.replace("-", "") for s in area_list]
 

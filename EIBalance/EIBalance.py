@@ -142,18 +142,18 @@ explif_params = {
 
 lif_init = {"V": init_var("Uniform", {"min": -60.0, "max": -50.0}),
             "RefracTime": 0.0}
-
+explif_params["Ioffset"]=0.2
 exc_pop = model.add_neuron_population("E", 4000, expLIF_model, explif_params, lif_init)
-model.add_current_source("E_pulse", trigger_pulse_model, exc_pop,
-                         {"start_time":500,
-                        "end_time":3000,
-                        "magnitude":0.2})
-explif_params["Ioffset"]=0
+# model.add_current_source("E_pulse", trigger_pulse_model, exc_pop,
+#                          {"start_time":500,
+#                         "end_time":3000,
+#                         "magnitude":0.13})
+explif_params["Ioffset"]=0.15
 inh_pop = model.add_neuron_population("I", 1000, expLIF_model, explif_params, lif_init)
-model.add_current_source("I_pulse", trigger_pulse_model, inh_pop,
-                         {"start_time":500,
-                        "end_time":3000,
-                        "magnitude":0.15})
+# model.add_current_source("I_pulse", trigger_pulse_model, inh_pop,
+#                          {"start_time":500,
+#                         "end_time":3000,
+#                         "magnitude":0.13})
 
 exc_pop.spike_recording_enabled = True
 inh_pop.spike_recording_enabled = True
@@ -168,30 +168,30 @@ inh_post_syn_params = {"tau": 5.0}
 
 fixed_prob = {"prob": 0.02}
 
-# EEpop=model.add_synapse_population("EE", "SPARSE",
-#     exc_pop, exc_pop,
-#     init_weight_update("StaticPulseConstantWeight", wEE_init),
-#     init_postsynaptic("ExpCurr", exc_post_syn_params),
-#     init_sparse_connectivity("FixedProbabilityNoAutapse", fixed_prob))
-EEpop=model.add_synapse_population("EE_NMDA", "SPARSE",
+EEpop=model.add_synapse_population("EE", "PROCEDURAL",
     exc_pop, exc_pop,
     init_weight_update("StaticPulseConstantWeight", wEE_init),
-    init_postsynaptic(postsyn_dual_exp, {"taur": 5.0, "taud": 100.0}, {"g": 0.0}),
-    init_sparse_connectivity("FixedProbability", fixed_prob))
+    init_postsynaptic("ExpCurr", exc_post_syn_params),
+    init_sparse_connectivity("FixedProbabilityNoAutapse", fixed_prob))
+# EEpop=model.add_synapse_population("EE_NMDA", "SPARSE",
+#     exc_pop, exc_pop,
+#     init_weight_update("StaticPulseConstantWeight", wEE_init),
+#     init_postsynaptic(postsyn_dual_exp, {"taur": 5.0, "taud": 100.0}, {"g": 0.0}),
+#     init_sparse_connectivity("FixedProbability", fixed_prob))
 
-EIpop=model.add_synapse_population("EI", "SPARSE",
+EIpop=model.add_synapse_population("EI", "PROCEDURAL",
     exc_pop, inh_pop,
     init_weight_update("StaticPulseConstantWeight", wEI_init),
     init_postsynaptic("ExpCurr", exc_post_syn_params),
     init_sparse_connectivity("FixedProbability", fixed_prob))
 
-IIpop=model.add_synapse_population("II", "SPARSE",
+IIpop=model.add_synapse_population("II", "PROCEDURAL",
     inh_pop, inh_pop,
     init_weight_update("StaticPulseConstantWeight", wII_init),
     init_postsynaptic("ExpCurr", inh_post_syn_params),
     init_sparse_connectivity("FixedProbabilityNoAutapse", fixed_prob))
 
-IEpop=model.add_synapse_population("IE", "SPARSE",
+IEpop=model.add_synapse_population("IE", "PROCEDURAL",
     inh_pop, exc_pop,
     init_weight_update("StaticPulseConstantWeight", wIE_init),
     init_postsynaptic("ExpCurr", inh_post_syn_params),
@@ -199,20 +199,20 @@ IEpop=model.add_synapse_population("IE", "SPARSE",
 
 model.build()
 model.load(num_recording_timesteps=50000)
-# EEi = []
-# EIi = []
-# IIi = []
-# IEi = []
+EEi = []
+EIi = []
+IIi = []
+IEi = []
 while model.t < 5000:
     model.step_time()
-#     record_inSyn(EEi, EEpop)
-#     record_inSyn(EIi, EIpop)
-#     record_inSyn(IIi, IIpop)
-#     record_inSyn(IEi, IEpop)
-# save_inSyn(EEi, "EE")
-# save_inSyn(EIi, "EI")
-# save_inSyn(IIi, "II")
-# save_inSyn(IEi, "IE")
+    record_inSyn(EEi, EEpop)
+    record_inSyn(EIi, EIpop)
+    record_inSyn(IIi, IIpop)
+    record_inSyn(IEi, IEpop)
+save_inSyn(EEi, "EE")
+save_inSyn(EIi, "EI")
+save_inSyn(IIi, "II")
+save_inSyn(IEi, "IE")
 
 model.pull_recording_buffers_from_device()
 

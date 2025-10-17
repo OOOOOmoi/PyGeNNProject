@@ -2,9 +2,9 @@
 
 ARGS="--duration 1000"
 ARGS="$ARGS --buffer"
-ARGS="$ARGS --buffer-size 10"
+ARGS="$ARGS --buffer-size 1000"
 # ARGS="$ARGS --SPARSE"
-ARGS="$ARGS --wEE 10 --wEI 40 --wIE 60 --wII 50"
+# ARGS="$ARGS --wEE 10 --wEI 40 --wIE 60 --wII 50"
 # ARGS="$ARGS --specificW"
 ARGS="$ARGS --poisson"
 # ARGS="$ARGS --AreaIdx 30"

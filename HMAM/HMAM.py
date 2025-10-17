@@ -81,7 +81,7 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    area_list = net_config['area_list'][0:1]
+    area_list = net_config['area_list'][0:2]
     # area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
         area_list = [area_list]
@@ -95,8 +95,7 @@ if __name__ == "__main__":
         model_name = f"{model_name}_{area_list[0]}"
 
     model = GeNNModel("float", "HMAM_CODE/"+model_name,
-                      device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device,
-                      runtime_log_level=PlogSeverity.DEBUG)
+                      device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
     model.default_narrow_sparse_ind_enabled = True

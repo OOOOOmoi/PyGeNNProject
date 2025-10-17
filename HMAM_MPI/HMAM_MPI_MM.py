@@ -197,8 +197,10 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
     flag = 0
     # simulation loop - note buffer_size timesteps per communication round
     while model.t < duration:
-        # step buffer_size times (but model.step_time does dt each call)
+        t_start = perf_counter()
         model.step_time()
+        t_end = perf_counter()
+        step_time = t_end - t_start  # 单次 step_time 耗时（秒）
 
         if (model.timestep % buffer_size) == 0:
             # pull and record
@@ -211,20 +213,17 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
                 "worker_rank": worker_rank,
                 "spike_data": spike_data_temp,
                 "NeuronNumber": NeuronNumber_local,
-                "timestamp_sent": MPI.Wtime()
+                "timestamp_sent": MPI.Wtime(),
+                "step_time": step_time   # ✅ 新增字段
             }
-            # all workers call gather, master will get list
-            comm.gather(msg, root=0)
 
-            # wait for master bcast (synchronization)
+            comm.gather(msg, root=0)
             ctrl = comm.bcast(None, root=0)
             if ctrl.get("type") == "stop":
                 print(f"[Worker {worker_rank}] received STOP", flush=True)
                 break
-            # else ctrl contains updates that you may apply (TODO)
             updates = ctrl.get("updates", None)
             if updates:
-                # apply update logic if needed (example: reading updates["rate"])
                 rate_info = updates["rate"]
                 pass
 
@@ -259,8 +258,11 @@ def Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, 
             latency = (recv_time - ts_corrected) if ts_corrected else None
             data_size = len(pickle.dumps(msg.get("spike_data", {})))
             speed = data_size / (latency * 1024 * 1024) if (latency and latency > 0) else float('inf')
-            print(f"[MASTER][step {step}] from worker {msg.get('worker_rank')} - latency {latency*1000 if latency else None:.3f} ms, size {data_size/1024:.1f} KB, speed {speed:.2f} MB/s", flush=True)
-            spike_blocks.append(msg.get("spike_data"))
+            step_time = msg.get("step_time", None)
+
+            print(f"[MASTER][step {step}] from worker {wrk} - latency {latency*1000 if latency else None:.3f} ms, "
+                f"size {data_size/1024:.1f} KB, speed {speed:.2f} MB/s, "
+                f"sim_step_time {step_time*1000 if step_time else None:.3f} ms", flush=True)
 
         # merge and compute processed_data
         all_spike_data = merge_spike_data(spike_blocks)
@@ -364,7 +366,7 @@ if __name__ == "__main__":
     offsets = comm.bcast(offsets, root=0)
 
     # compute area splits among workers (global)
-    split_idx = split_indices(68, num_workers)  # splits[i] assigned to worker rank=i+1
+    split_idx = split_indices(32, num_workers)  # splits[i] assigned to worker rank=i+1
 
     if rank == 0:
         # master main

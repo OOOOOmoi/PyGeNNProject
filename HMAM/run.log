@@ -1479,3 +1479,453 @@ Timing:
 	Sparse init:0.000000
 	Neuron simulation:125.225248
 	Synapse simulation:111542.407067
+make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer0.0s_CODE'
+make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer0.0s_CODE'
+2025-10-17 09:52:47.740 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhbanksstsE23'
+2025-10-17 09:52:47.748 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 1578250 * uint32_t(0x3131afb0)
+2025-10-17 09:52:47.767 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 5050390 * float(0x313d7fb0)
+2025-10-17 09:52:47.786 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 5050390 * float(0x31406c40)
+2025-10-17 09:52:47.786 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhbanksstsE23_poisson'
+2025-10-17 09:52:47.806 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 5050390 * float(0x313903f0)
+2025-10-17 09:52:47.806 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsE23'
+2025-10-17 09:52:47.824 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 5050390 * float(0x31406d20)
+2025-10-17 09:52:48.582 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 217166770 * float(0x312f6aa0)
+2025-10-17 09:52:48.582 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x310af420)
+2025-10-17 09:52:48.582 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsE23'
+2025-10-17 09:52:48.601 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 5050390 * float(0x312dc020)
+2025-10-17 09:52:48.969 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 106058190 * float(0x3136da70)
+2025-10-17 09:52:48.969 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x312c1490)
+2025-10-17 09:52:48.969 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhbanksstsE23_to_ctxlhbanksstsI6'
+2025-10-17 09:52:48.971 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x312c1b30)
+2025-10-17 09:52:48.990 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 5050390 * uint32_t(0x312c3320)
+2025-10-17 09:52:48.990 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhbanksstsE4'
+2025-10-17 09:52:48.993 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 701000 * uint32_t(0x313f90e0)
+2025-10-17 09:52:49.002 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 2243184 * float(0x31350670)
+2025-10-17 09:52:49.011 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 2243184 * float(0x313f3c70)
+2025-10-17 09:52:49.011 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhbanksstsE4_poisson'
+2025-10-17 09:52:49.019 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 2243184 * float(0x313f5b10)
+2025-10-17 09:52:49.019 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsE4'
+2025-10-17 09:52:49.027 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 2243184 * float(0x313f0f00)
+2025-10-17 09:52:49.351 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 96456912 * float(0x313f2ed0)
+2025-10-17 09:52:49.351 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x31333d40)
+2025-10-17 09:52:49.351 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsI5_to_ctxlhbanksstsE4'
+2025-10-17 09:52:49.360 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 2243184 * float(0x313343e0)
+2025-10-17 09:52:49.522 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 47106864 * float(0x3134c1c0)
+2025-10-17 09:52:49.523 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x3134e540)
+2025-10-17 09:52:49.523 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhbanksstsE4_to_ctxlhbanksstsI6'
+2025-10-17 09:52:49.523 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x3134ebe0)
+2025-10-17 09:52:49.531 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 2243184 * uint32_t(0x312f3220)
+2025-10-17 09:52:49.531 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhbanksstsE5'
+2025-10-17 09:52:49.535 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 817970 * uint32_t(0x312f5180)
+2025-10-17 09:52:49.546 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 2617478 * float(0x3138e110)
+2025-10-17 09:52:49.556 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 2617478 * float(0x311c06f0)
+2025-10-17 09:52:49.556 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhbanksstsE5_poisson'
+2025-10-17 09:52:49.566 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 2617478 * float(0x311c2630)
+2025-10-17 09:52:49.566 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsE5'
+2025-10-17 09:52:49.575 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 2617478 * float(0x3114dba0)
+2025-10-17 09:52:49.937 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 112551554 * float(0x3114fb50)
+2025-10-17 09:52:49.938 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x31151ef0)
+2025-10-17 09:52:49.938 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsI5_to_ctxlhbanksstsE5'
+2025-10-17 09:52:49.947 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 2617478 * float(0x31310920)
+2025-10-17 09:52:50.123 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 54967038 * float(0x31312880)
+2025-10-17 09:52:50.123 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x31368810)
+2025-10-17 09:52:50.123 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhbanksstsE5_to_ctxlhbanksstsI6'
+2025-10-17 09:52:50.123 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x31368eb0)
+2025-10-17 09:52:50.132 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 2617478 * uint32_t(0x31369b70)
+2025-10-17 09:52:50.132 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhbanksstsE6'
+2025-10-17 09:52:50.135 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 586210 * uint32_t(0x3136bb20)
+2025-10-17 09:52:50.142 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 1875859 * float(0x31355220)
+2025-10-17 09:52:50.149 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 1875859 * float(0x31357180)
+2025-10-17 09:52:50.150 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhbanksstsE6_poisson'
+2025-10-17 09:52:50.156 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 1875859 * float(0x3133a0d0)
+2025-10-17 09:52:50.157 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsI6_to_ctxlhbanksstsE6'
+2025-10-17 09:52:50.163 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 1875859 * float(0x3133be00)
+2025-10-17 09:52:50.286 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 39393039 * float(0x3133dfd0)
+2025-10-17 09:52:50.286 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x3137ac40)
+2025-10-17 09:52:50.286 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsE6'
+2025-10-17 09:52:50.293 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 1875859 * float(0x3137b2e0)
+2025-10-17 09:52:50.551 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 80661937 * float(0x3137d060)
+2025-10-17 09:52:50.552 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x30ac2000)
+2025-10-17 09:52:50.552 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhbanksstsE6_to_ctxlhbanksstsI6'
+2025-10-17 09:52:50.552 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x30ac26a0)
+2025-10-17 09:52:50.559 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 1875859 * uint32_t(0x30ac3360)
+2025-10-17 09:52:50.559 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhbanksstsI23'
+2025-10-17 09:52:50.562 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 849830 * uint32_t(0x30ac5310)
+2025-10-17 09:52:50.573 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 2719441 * float(0x31187930)
+2025-10-17 09:52:50.582 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 2719441 * float(0x31189a60)
+2025-10-17 09:52:50.582 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhbanksstsI23_poisson'
+2025-10-17 09:52:50.592 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 2719441 * float(0x31327e20)
+2025-10-17 09:52:50.592 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsI23'
+2025-10-17 09:52:50.602 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 2719441 * float(0x31329fa0)
+2025-10-17 09:52:50.974 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 116935963 * float(0x3132c140)
+2025-10-17 09:52:50.974 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x313167d0)
+2025-10-17 09:52:50.974 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsI23'
+2025-10-17 09:52:50.983 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 2719441 * float(0x31316e70)
+2025-10-17 09:52:51.164 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 57108261 * float(0x31318fa0)
+2025-10-17 09:52:51.164 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x31387060)
+2025-10-17 09:52:51.164 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhbanksstsI23_to_ctxlhbanksstsI6'
+2025-10-17 09:52:51.165 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x31387700)
+2025-10-17 09:52:51.174 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 2719441 * uint32_t(0x313883c0)
+2025-10-17 09:52:51.175 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhbanksstsI4'
+2025-10-17 09:52:51.175 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 186350 * uint32_t(0x3138a540)
+2025-10-17 09:52:51.178 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 596289 * float(0x312f9e10)
+2025-10-17 09:52:51.181 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 596289 * float(0x312fbcd0)
+2025-10-17 09:52:51.181 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhbanksstsI4_poisson'
+2025-10-17 09:52:51.184 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 596289 * float(0x312fdcd0)
+2025-10-17 09:52:51.184 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsI4'
+2025-10-17 09:52:51.187 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 596289 * float(0x3131e2e0)
+2025-10-17 09:52:51.269 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 25640427 * float(0x313201a0)
+2025-10-17 09:52:51.269 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x313224c0)
+2025-10-17 09:52:51.269 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsI4'
+2025-10-17 09:52:51.272 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 596289 * float(0x31322b60)
+2025-10-17 09:52:51.312 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 12522069 * float(0x312d6090)
+2025-10-17 09:52:51.312 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x312d83c0)
+2025-10-17 09:52:51.312 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhbanksstsI4_to_ctxlhbanksstsI6'
+2025-10-17 09:52:51.312 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x312d8a60)
+2025-10-17 09:52:51.315 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 596289 * uint32_t(0x312d9720)
+2025-10-17 09:52:51.315 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhbanksstsI5'
+2025-10-17 09:52:51.315 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 230710 * uint32_t(0x311ba9e0)
+2025-10-17 09:52:51.319 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 738263 * float(0x311bc660)
+2025-10-17 09:52:51.322 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 738263 * float(0x311be480)
+2025-10-17 09:52:51.322 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhbanksstsI5_poisson'
+2025-10-17 09:52:51.326 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 738263 * float(0x313dac60)
+2025-10-17 09:52:51.326 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsI5'
+2025-10-17 09:52:51.329 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 738263 * float(0x313dcad0)
+2025-10-17 09:52:51.430 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 31745309 * float(0x313de990)
+2025-10-17 09:52:51.430 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x313e0d10)
+2025-10-17 09:52:51.430 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsI5_to_ctxlhbanksstsI5'
+2025-10-17 09:52:51.433 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 738263 * float(0x313e13b0)
+2025-10-17 09:52:51.482 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 15503523 * float(0x313801a0)
+2025-10-17 09:52:51.483 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x313824c0)
+2025-10-17 09:52:51.483 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhbanksstsI5_to_ctxlhbanksstsI6'
+2025-10-17 09:52:51.483 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x31382b60)
+2025-10-17 09:52:51.486 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 738263 * uint32_t(0x31383820)
+2025-10-17 09:52:51.486 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhbanksstsI6'
+2025-10-17 09:52:51.486 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 95430 * uint32_t(0x313855f0)
+2025-10-17 09:52:51.489 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 305372 * float(0x3133fc50)
+2025-10-17 09:52:51.492 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 305372 * float(0x31341a10)
+2025-10-17 09:52:51.492 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhbanksstsI6_poisson'
+2025-10-17 09:52:51.494 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 305372 * float(0x313439b0)
+2025-10-17 09:52:51.495 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsI6_to_ctxlhbanksstsI6'
+2025-10-17 09:52:51.497 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 305372 * float(0x313459a0)
+2025-10-17 09:52:51.519 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 6412812 * float(0x31362930)
+2025-10-17 09:52:51.519 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x31364ac0)
+2025-10-17 09:52:51.519 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsI6'
+2025-10-17 09:52:51.522 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 305372 * float(0x31365160)
+2025-10-17 09:52:51.563 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 13130996 * float(0x313670b0)
+2025-10-17 09:52:51.563 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x312c4eb0)
+2025-10-17 09:52:51.563 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhbanksstsI6_to_ctxlhbanksstsI6'
+2025-10-17 09:52:51.563 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x312c5490)
+2025-10-17 09:52:51.566 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 305372 * uint32_t(0x312c6150)
+2025-10-17 09:52:51.566 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhcaudalanteriorcingulateE23'
+2025-10-17 09:52:51.568 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 568350 * uint32_t(0x312c80d0)
+2025-10-17 09:52:51.576 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 1818716 * float(0x312cb120)
+2025-10-17 09:52:51.582 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 1818716 * float(0x313716d0)
+2025-10-17 09:52:51.582 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhcaudalanteriorcingulateE23_poisson'
+2025-10-17 09:52:51.590 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 1818716 * float(0x31373590)
+2025-10-17 09:52:51.590 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateE23'
+2025-10-17 09:52:51.596 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 1818716 * float(0x31375710)
+2025-10-17 09:52:51.849 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 78204788 * float(0x31377670)
+2025-10-17 09:52:51.850 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x31409200)
+2025-10-17 09:52:51.850 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateE23'
+2025-10-17 09:52:51.856 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 1818716 * float(0x314098a0)
+2025-10-17 09:52:51.982 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 38193036 * float(0x3140b800)
+2025-10-17 09:52:51.982 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x3140db80)
+2025-10-17 09:52:51.982 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhcaudalanteriorcingulateE23_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:51.983 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x3140e220)
+2025-10-17 09:52:51.989 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 1818716 * uint32_t(0x3140eee0)
+2025-10-17 09:52:51.989 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhcaudalanteriorcingulateE5'
+2025-10-17 09:52:51.992 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 515510 * uint32_t(0x313b2970)
+2025-10-17 09:52:51.999 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 1649627 * float(0x313b5b70)
+2025-10-17 09:52:52.005 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 1649627 * float(0x313b7ad0)
+2025-10-17 09:52:52.005 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhcaudalanteriorcingulateE5_poisson'
+2025-10-17 09:52:52.011 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 1649627 * float(0x31358390)
+2025-10-17 09:52:52.011 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateE5'
+2025-10-17 09:52:52.017 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 1649627 * float(0x3135a160)
+2025-10-17 09:52:52.241 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 70933961 * float(0x3135c330)
+2025-10-17 09:52:52.241 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x3135e6b0)
+2025-10-17 09:52:52.241 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateI5_to_ctxlhcaudalanteriorcingulateE5'
+2025-10-17 09:52:52.248 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 1649627 * float(0x3135ed50)
+2025-10-17 09:52:52.358 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 34642167 * float(0x3119c3b0)
+2025-10-17 09:52:52.358 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x3119e750)
+2025-10-17 09:52:52.358 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhcaudalanteriorcingulateE5_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:52.358 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x3119edf0)
+2025-10-17 09:52:52.364 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 1649627 * uint32_t(0x3119fab0)
+2025-10-17 09:52:52.364 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:52.367 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 789060 * uint32_t(0x311a1a60)
+2025-10-17 09:52:52.377 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 2524985 * float(0x3111e000)
+2025-10-17 09:52:52.386 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 2524985 * float(0x3111ff70)
+2025-10-17 09:52:52.386 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhcaudalanteriorcingulateE6_poisson'
+2025-10-17 09:52:52.395 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 2524985 * float(0x31121ed0)
+2025-10-17 09:52:52.395 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateI6_to_ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:52.404 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 2524985 * float(0x311240f0)
+2025-10-17 09:52:52.573 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 53024685 * float(0x31126220)
+2025-10-17 09:52:52.573 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x31391ca0)
+2025-10-17 09:52:52.573 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:52.582 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 2524985 * float(0x31392340)
+2025-10-17 09:52:52.929 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 108574355 * float(0x31394160)
+2025-10-17 09:52:52.930 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x31396320)
+2025-10-17 09:52:52.930 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:52.930 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x313969c0)
+2025-10-17 09:52:52.939 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 2524985 * uint32_t(0x31397680)
+2025-10-17 09:52:52.939 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhcaudalanteriorcingulateI23'
+2025-10-17 09:52:52.942 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 306040 * uint32_t(0x31399590)
+2025-10-17 09:52:52.946 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 979309 * float(0x312cea10)
+2025-10-17 09:52:52.951 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 979309 * float(0x312d0830)
+2025-10-17 09:52:52.951 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhcaudalanteriorcingulateI23_poisson'
+2025-10-17 09:52:52.955 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 979309 * float(0x312d2790)
+2025-10-17 09:52:52.955 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateI23'
+2025-10-17 09:52:52.959 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 979309 * float(0x312d4740)
+2025-10-17 09:52:53.095 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 42110287 * float(0x313e5da0)
+2025-10-17 09:52:53.095 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x313e7e60)
+2025-10-17 09:52:53.095 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateI23'
+2025-10-17 09:52:53.099 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 979309 * float(0x313e8500)
+2025-10-17 09:52:53.166 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 20565489 * float(0x313ea460)
+2025-10-17 09:52:53.167 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x313ec800)
+2025-10-17 09:52:53.167 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.167 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x313ecea0)
+2025-10-17 09:52:53.171 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 979309 * uint32_t(0x313fb3d0)
+2025-10-17 09:52:53.171 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhcaudalanteriorcingulateI5'
+2025-10-17 09:52:53.171 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 145400 * uint32_t(0x313fd380)
+2025-10-17 09:52:53.174 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 465279 * float(0x313fef50)
+2025-10-17 09:52:53.177 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 465279 * float(0x31400ef0)
+2025-10-17 09:52:53.177 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhcaudalanteriorcingulateI5_poisson'
+2025-10-17 09:52:53.179 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 465279 * float(0x31402d50)
+2025-10-17 09:52:53.180 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateI5'
+2025-10-17 09:52:53.182 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 465279 * float(0x310aff10)
+2025-10-17 09:52:53.247 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 20006997 * float(0x310b1eb0)
+2025-10-17 09:52:53.248 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x310b4230)
+2025-10-17 09:52:53.248 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateI5_to_ctxlhcaudalanteriorcingulateI5'
+2025-10-17 09:52:53.250 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 465279 * float(0x310b48d0)
+2025-10-17 09:52:53.282 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 9770859 * float(0x310b6870)
+2025-10-17 09:52:53.283 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x310b8c10)
+2025-10-17 09:52:53.283 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhcaudalanteriorcingulateI5_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.283 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x310b92b0)
+2025-10-17 09:52:53.285 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 465279 * uint32_t(0x313a6c80)
+2025-10-17 09:52:53.285 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@160] Allocating memory for neuron group 'ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.285 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'recordSpk' = 128460 * uint32_t(0x313a8c70)
+2025-10-17 09:52:53.288 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'V' = 411044 * float(0x313aa760)
+2025-10-17 09:52:53.291 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'RefracTime' = 411044 * float(0x313ac700)
+2025-10-17 09:52:53.291 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@221] 	Child current source 'ctxlhcaudalanteriorcingulateI6_poisson'
+2025-10-17 09:52:53.293 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'current' = 411044 * float(0x313ae6a0)
+2025-10-17 09:52:53.294 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateI6_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.296 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 411044 * float(0x313b0550)
+2025-10-17 09:52:53.325 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 8631924 * float(0x3139b710)
+2025-10-17 09:52:53.325 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x313b10d0)
+2025-10-17 09:52:53.325 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@230] 	Fused PSM incoming synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.328 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'outPost' = 411044 * float(0x3139e000)
+2025-10-17 09:52:53.385 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelay' = 17674892 * float(0x3139ffa0)
+2025-10-17 09:52:53.385 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'denDelayPtr' = 1 * uint32_t(0x313a2340)
+2025-10-17 09:52:53.386 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@270] 	Fused spike 'ctxlhcaudalanteriorcingulateI6_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.386 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpkCnt' = 1 * uint32_t(0x313a2990)
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 		Array 'srcSpk' = 411044 * uint32_t(0x313a35e0)
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE23_to_ctxlhbanksstsE23'
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x313a56a0)
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE23_to_ctxlhbanksstsE4'
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x313a5810)
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE23_to_ctxlhbanksstsE5'
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x313a5980)
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE23_to_ctxlhbanksstsE6'
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x313a5b20)
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE23_to_ctxlhbanksstsI23'
+2025-10-17 09:52:53.388 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312de580)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE23_to_ctxlhbanksstsI4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312de720)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE23_to_ctxlhbanksstsI5'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312de8c0)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE23_to_ctxlhbanksstsI6'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312dead0)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE4_to_ctxlhbanksstsE23'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312dec20)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE4_to_ctxlhbanksstsE4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312dee30)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE4_to_ctxlhbanksstsE5'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312df040)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE4_to_ctxlhbanksstsE6'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312df250)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE4_to_ctxlhbanksstsI23'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312df460)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE4_to_ctxlhbanksstsI4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312df670)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE4_to_ctxlhbanksstsI5'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312df880)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE4_to_ctxlhbanksstsI6'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312dfa90)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE5_to_ctxlhbanksstsE23'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312dfbe0)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE5_to_ctxlhbanksstsE4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312dfdf0)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE5_to_ctxlhbanksstsE5'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0000)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE5_to_ctxlhbanksstsE6'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0210)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE5_to_ctxlhbanksstsI23'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0420)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE5_to_ctxlhbanksstsI4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0630)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE5_to_ctxlhbanksstsI5'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0840)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE5_to_ctxlhbanksstsI6'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0a50)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsE23'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0ba0)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsE4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0cf0)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsE5'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0e40)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsE6'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e0f90)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsI23'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e10e0)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsI4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e1230)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsI5'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e1380)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsE6_to_ctxlhbanksstsI6'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e14d0)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI23_to_ctxlhbanksstsE23'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e1620)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI23_to_ctxlhbanksstsE4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e1830)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI23_to_ctxlhbanksstsE5'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e1a40)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI23_to_ctxlhbanksstsE6'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e1c50)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI23_to_ctxlhbanksstsI23'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e1e60)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI23_to_ctxlhbanksstsI4'
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e2070)
+2025-10-17 09:52:53.389 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI23_to_ctxlhbanksstsI5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e2280)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI23_to_ctxlhbanksstsI6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e2490)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsE23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e25e0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsE4'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e2730)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsE5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e2940)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsE6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e2b50)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsI23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e2d60)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsI4'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e2eb0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsI5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3000)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI4_to_ctxlhbanksstsI6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3210)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI5_to_ctxlhbanksstsE4'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3360)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI5_to_ctxlhbanksstsE5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e34b0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI5_to_ctxlhbanksstsE6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3600)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI5_to_ctxlhbanksstsI5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3810)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI5_to_ctxlhbanksstsI6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3960)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI6_to_ctxlhbanksstsE6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3ab0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhbanksstsI6_to_ctxlhbanksstsI6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3c00)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE23_to_ctxlhcaudalanteriorcingulateE23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3d50)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE23_to_ctxlhcaudalanteriorcingulateE5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e3f60)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE23_to_ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e4170)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE23_to_ctxlhcaudalanteriorcingulateI23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e4380)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE23_to_ctxlhcaudalanteriorcingulateI5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e4590)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE23_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e47a0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE5_to_ctxlhcaudalanteriorcingulateE23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e48f0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE5_to_ctxlhcaudalanteriorcingulateE5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e4b00)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE5_to_ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e4d10)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE5_to_ctxlhcaudalanteriorcingulateI23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e4f20)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE5_to_ctxlhcaudalanteriorcingulateI5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5130)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE5_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5340)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateE23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5490)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateE5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e55e0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5730)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateI23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5880)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateI5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e59d0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateE6_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5b20)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateE23'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5c70)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateE5'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5dc0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e5fd0)
+2025-10-17 09:52:53.390 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateI23'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e61e0)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateI5'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e6330)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI23_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e6540)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI5_to_ctxlhcaudalanteriorcingulateE5'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e6690)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI5_to_ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e67e0)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI5_to_ctxlhcaudalanteriorcingulateI5'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e69f0)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI5_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e6b40)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI6_to_ctxlhcaudalanteriorcingulateE6'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e6c90)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::allocate@320] Allocating memory for synapse group 'ctxlhcaudalanteriorcingulateI6_to_ctxlhcaudalanteriorcingulateI6'
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::createArray@838] 	Array 'preCalcRowLengthSparseConnect' = 0 * uint16_t(0x312e6de0)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::pushMergedGroup@579] Pushing merged group 'SynapseConnectivityHostInit' index: 0
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::pushMergedGroup@605] 	Group: 0
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::pushMergedGroup<GeNN::CodeGenerator::SynapseConnectivityHostInitGroupMerged>@624] 		d_preCalcRowLength = array (0x313a56a0)
+2025-10-17 09:52:53.391 DEBUG [2156322] [GeNN::Runtime::Runtime::pushMergedGroup<GeNN::CodeGenerator::SynapseConnectivityHostInitGroupMerged>@624] 		preCalcRowLength = array (0x313a56a0)
+Building Model of 23995236 neurons and 268507100582 synapses of 85 groups
+Loading Model
+Traceback (most recent call last):
+  File "/home/yangjinhao/PyGeNNProject/HMAM/HMAM.py", line 274, in <module>
+    model.load(num_recording_timesteps=args.buffer_size)
+  File "/home/yangjinhao/miniconda3/envs/pygenn52/lib/python3.10/site-packages/pygenn-5.2.0-py3.10-linux-x86_64.egg/pygenn/genn_model.py", line 720, in load
+    self._runtime.allocate(num_recording_timesteps)
+RuntimeError: Numeric value too large to be represented using uint32_t
+make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer0.0s_CODE'
+make: Nothing to be done for 'all'.
+make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer0.0s_CODE'
+Building Model of 23995236 neurons and 268507100582 synapses of 85 groups
+Loading Model
+Simulating
+10%
+20%
+30%
+40%
+50%
+60%
+70%
+80%
+90%
+100%
+Timing:
+	Build:4699.454252
+	Simulation:364713.275637
+	Init:53.909374
+	Sparse init:0.000000
+	Neuron simulation:26801.182747
+	Synapse simulation:187830.297771
+make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer0.0s_CODE'
+make: Nothing to be done for 'all'.
+make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer0.0s_CODE'
+make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer1.0s_CODE'
+make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer1.0s_CODE'

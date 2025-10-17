@@ -1,6 +1,6 @@
-vis_content = ['pop-rate']
+vis_content = []
 model_content = {
-    'V1': ["4"],
+    'MT': [],
     # 'V2': ["23","4"],
 }
 

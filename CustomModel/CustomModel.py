@@ -105,7 +105,7 @@ if __name__ == "__main__":
         f.write(model_name)
     rand_str = ''
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
-    
+    os.makedirs("GenCODE/", exist_ok=True)
     model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
@@ -188,8 +188,8 @@ if __name__ == "__main__":
             )
 
             if args.poisson:
-                ext_weight = SynapsesWeightMean[area][pop]['external']['external'] * 100
-                rate = 10 * SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop]
+                ext_weight = SynapsesWeightMean[area][pop]['external']['external']
+                rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 1000.0
                 poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                 model.add_current_source(pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
             # Enable spike recording

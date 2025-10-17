@@ -1,0 +1,16 @@
+[Worker 9] start on GPU 0, assigned areas: ['ctxlhparsopercularis', 'ctxlhparsorbitalis']
+[Worker 9] Building done: neurons 118358, synapses 1749485664, groups 124 on GPU 0
+make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM_MPI/HMAM_MPI_CODE/worker9_gpu0_CODE'
+make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM_MPI/HMAM_MPI_CODE/worker9_gpu0_CODE'
+[Worker 9] Model loaded; starting sim loop
+[Worker 9] progress 10%
+[Worker 9] progress 20%
+[Worker 9] progress 30%
+[Worker 9] progress 40%
+[Worker 9] progress 50%
+[Worker 9] progress 60%
+[Worker 9] progress 70%
+[Worker 9] progress 80%
+[Worker 9] progress 90%
+[Worker 9] progress 100%
+[Worker 9] simulation finished.

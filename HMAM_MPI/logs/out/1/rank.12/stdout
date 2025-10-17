@@ -1,0 +1,16 @@
+[Worker 12] start on GPU 3, assigned areas: ['ctxlhprecentral', 'ctxlhprecuneus']
+[Worker 12] Building done: neurons 124036, synapses 1660466322, groups 118 on GPU 3
+make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM_MPI/HMAM_MPI_CODE/worker12_gpu3_CODE'
+make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM_MPI/HMAM_MPI_CODE/worker12_gpu3_CODE'
+[Worker 12] Model loaded; starting sim loop
+[Worker 12] progress 10%
+[Worker 12] progress 20%
+[Worker 12] progress 30%
+[Worker 12] progress 40%
+[Worker 12] progress 50%
+[Worker 12] progress 60%
+[Worker 12] progress 70%
+[Worker 12] progress 80%
+[Worker 12] progress 90%
+[Worker 12] progress 100%
+[Worker 12] simulation finished.

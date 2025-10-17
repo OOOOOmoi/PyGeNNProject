@@ -3,7 +3,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, Normalize
-
+import os
 def get_custom_colormap():
     base = plt.get_cmap("viridis")
     colors = base(np.linspace(0, 1, 256))
@@ -99,4 +99,5 @@ def connectom(suffix, synapse_number, synapse_weight, neuron_number, structure, 
 
     plt.suptitle(title, fontsize=18)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
+    os.makedirs("output/map", exist_ok=True)
     plt.savefig(f"output/map/map_{suffix}.png")

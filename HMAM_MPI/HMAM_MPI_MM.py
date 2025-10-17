@@ -194,6 +194,9 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
     model.load(num_recording_timesteps=buffer_size)
     print(f"[Worker {worker_rank}] Model loaded; starting sim loop", flush=True)
 
+    for tar_area, src_area in product(area_list, area_list):
+        delay_step = delay_cc.loc[(src_area, tar_area)] / model.dt
+        
     flag = 0
     # simulation loop - note buffer_size timesteps per communication round
     while model.t < duration:
@@ -366,7 +369,7 @@ if __name__ == "__main__":
     offsets = comm.bcast(offsets, root=0)
 
     # compute area splits among workers (global)
-    split_idx = split_indices(32, num_workers)  # splits[i] assigned to worker rank=i+1
+    split_idx = split_indices(68, num_workers)  # splits[i] assigned to worker rank=i+1
 
     if rank == 0:
         # master main

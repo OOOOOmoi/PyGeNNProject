@@ -1,0 +1,16 @@
+[Worker 6] start on GPU 5, assigned areas: ['ctxlhlateralorbitofrontal', 'ctxlhlingual']
+[Worker 6] Building done: neurons 190986, synapses 1611093897, groups 110 on GPU 5
+make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM_MPI/HMAM_MPI_CODE/worker6_gpu5_CODE'
+make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM_MPI/HMAM_MPI_CODE/worker6_gpu5_CODE'
+[Worker 6] Model loaded; starting sim loop
+[Worker 6] progress 10%
+[Worker 6] progress 20%
+[Worker 6] progress 30%
+[Worker 6] progress 40%
+[Worker 6] progress 50%
+[Worker 6] progress 60%
+[Worker 6] progress 70%
+[Worker 6] progress 80%
+[Worker 6] progress 90%
+[Worker 6] progress 100%
+[Worker 6] simulation finished.

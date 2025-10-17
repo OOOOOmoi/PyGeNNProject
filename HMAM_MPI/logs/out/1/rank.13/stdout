@@ -1,0 +1,16 @@
+[Worker 13] start on GPU 4, assigned areas: ['ctxlhrostralanteriorcingulate', 'ctxlhrostralmiddlefrontal']
+[Worker 13] Building done: neurons 117372, synapses 1710593072, groups 124 on GPU 4
+make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM_MPI/HMAM_MPI_CODE/worker13_gpu4_CODE'
+make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM_MPI/HMAM_MPI_CODE/worker13_gpu4_CODE'
+[Worker 13] Model loaded; starting sim loop
+[Worker 13] progress 10%
+[Worker 13] progress 20%
+[Worker 13] progress 30%
+[Worker 13] progress 40%
+[Worker 13] progress 50%
+[Worker 13] progress 60%
+[Worker 13] progress 70%
+[Worker 13] progress 80%
+[Worker 13] progress 90%
+[Worker 13] progress 100%
+[Worker 13] simulation finished.

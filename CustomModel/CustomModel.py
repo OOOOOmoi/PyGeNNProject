@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 from nested_dict import nested_dict
 from config import collection_params, vis_content, record_I
-from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path
+from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type
 from visual import visualize, generate_unique_suffix
 from connectom import connectom
 from record import record_spike, save_spike, record_inSyn, save_inSyn
@@ -33,7 +33,8 @@ def prepare(args):
     Dist=ParamOfAll["distances"]
 
     model_structure = get_struct()
-    SynapsesWeightMean, SynapsesWeightSd = getWeightMap(model_structure, args)
+    # SynapsesWeightMean, SynapsesWeightSd = getWeightMap(model_structure, args)
+    SynapsesWeightMean, SynapsesWeightSd = getWeightMap_full_type(model_structure, args)
     delayMap = getDelayMap(model_structure, Dist)
     return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap
 
@@ -152,9 +153,21 @@ if __name__ == "__main__":
     neuron_populations = defaultdict(dict)
     poisson_init = {"current": 0.0}
     lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": params['TauRefrac']}
+    Cm = collection_params['single_neuron_dict']['Cm']
+    gL = collection_params['single_neuron_dict']['gL']
+    tref = collection_params['single_neuron_dict']['tref']
+    Vrest = collection_params['single_neuron_dict']['Vrest']
+    Vth = collection_params['single_neuron_dict']['Vth']
+    rate_ext = collection_params['single_neuron_dict']['rate_ext']
     for area, PopList in struct.items():
         for pop in PopList:
             popName = area+pop
+            params["C"] = Cm[pop] / 1000.0
+            params["TauM"] = Cm[pop] / gL[pop]
+            params["Vrest"] = Vrest[pop]
+            params["Vreset"] = Vrest[pop] - 10.0
+            params["Vthresh"] = Vth[pop]
+            params["TauRefrac"] = tref[pop]
             if pop == "S4" and ("free_scale_input" in args):
                 input[pop] += float(args.free_scale_input)
             # if pop == "S5" and ("free_scale_input" in args):
@@ -188,8 +201,9 @@ if __name__ == "__main__":
             )
 
             if args.poisson:
-                ext_weight = SynapsesWeightMean[area][pop]['external']['external']
-                rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 1000.0
+                ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1000
+                rate = 10 * SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop]
+                rate = rate_ext[pop] / 2
                 poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                 model.add_current_source(pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
             # Enable spike recording

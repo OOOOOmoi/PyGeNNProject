@@ -1929,3 +1929,5 @@ make: Nothing to be done for 'all'.
 make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer0.0s_CODE'
 make: Entering directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer1.0s_CODE'
 make: Leaving directory '/home/yangjinhao/PyGeNNProject/HMAM/HMAM_CODE/1.0s_buffer1.0s_CODE'
+make: Entering directory '/home/yangjinhao/PyGenn/HMAM/HMAM_CODE/1.0s_buffer1.0s_CODE'
+make: Leaving directory '/home/yangjinhao/PyGenn/HMAM/HMAM_CODE/1.0s_buffer1.0s_CODE'

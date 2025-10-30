@@ -81,8 +81,8 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    area_list = net_config['area_list'][0:2]
-    # area_list = net_config['area_list'][int(args.AreaIdx)]
+    # area_list = net_config['area_list'][0:2]
+    area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
         area_list = [area_list]
     area_list = [s.replace("-", "") for s in area_list]
@@ -134,6 +134,7 @@ if __name__ == "__main__":
     weight_ext = remove_dash_from_index_columns(weight_ext)
     weight_ext_sd = remove_dash_from_index_columns(weight_ext_sd)
     neuron_populations = defaultdict(dict)
+    neuron_group = 0
     NeuronNumber = defaultdict(dict)
     poisson_init = {"current": 0.0}
     lif_init = {"V": init_var("Uniform", {"max": -50.0, "min": -200.0}), "RefracTime": 0.0}
@@ -179,7 +180,7 @@ if __name__ == "__main__":
                             model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
 
                         neuron_pop.spike_recording_enabled = True
-
+                        neuron_group += 1
                         total_neurons += popNum
                         neuron_populations[area][pop+layer_map[layer]] = neuron_pop
                     
@@ -259,7 +260,7 @@ if __name__ == "__main__":
                             syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
                         synapse_populations[tar_area][tar_pop+layer_map[tar_layer]][src_area][src_pop+layer_map[src_layer]] = syn_pop
 
-    print("Building Model of %u neurons and %u synapses of %u groups" % (total_neurons, total_synapses, syn_group_num))
+    print(f"Building Model of {total_neurons} neurons of {neuron_group} groups and {total_synapses} synapses of {syn_group_num} groups in device {args.device}")
     build_start_time = perf_counter()
     model.build()
     build_end_time = perf_counter()

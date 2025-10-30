@@ -20,9 +20,9 @@ values1=$(seq 10 10 10)
 values2=$(seq 40 10 40)
 values3=$(seq 60 10 60)
 values4=$(seq 50 10 50)
-values5=$(seq 0 1 67)
-ngpu=8          # GPU 数量
-per_gpu=2       # 每个 GPU 上允许的最大并行进程数
+values5=$(seq 58 1 67)
+ngpu=10          # GPU 数量
+per_gpu=1       # 每个 GPU 上允许的最大并行进程数
 count=0
 
 # 任务管理
@@ -37,10 +37,10 @@ for w5 in $values5; do
   echo "Launching task $count on GPU $gpu_id"
 
   ARGS="--duration 1000"
-  # ARGS="$ARGS --buffer"
-  # ARGS="$ARGS --buffer-size 100"
-  ARGS="$ARGS --SPARSE"
-  ARGS="$ARGS --wEE $w1 --wEI $w2 --wIE $w3 --wII $w4"
+  ARGS="$ARGS --buffer"
+  ARGS="$ARGS --buffer-size 100"
+  # ARGS="$ARGS --SPARSE"
+  # ARGS="$ARGS --wEE $w1 --wEI $w2 --wIE $w3 --wII $w4"
   ARGS="$ARGS --AreaIdx $w5"
   ARGS="$ARGS --device $gpu_id"
   ARGS="$ARGS --poisson"

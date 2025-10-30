@@ -1,11 +1,13 @@
-from config import get_SN, get_weight, remove_dash_from_index_columns, get_weight_ext, get_ext_rate, net
+from config import get_NN, get_SN, get_weight, remove_dash_from_index_columns, get_weight_ext, get_ext_rate, net
 
 def split_indices(num_areas, num_workkers):
     # 平均分配索引到 num_gpus 个子列表
     indices = list(range(1, num_areas + 1))   # 生成 1 ~ num_areas
     chunk_size = (num_areas + num_workkers - 1) // num_workkers  # 向上取整
     return [indices[i*chunk_size:(i+1)*chunk_size] for i in range(num_workkers) if indices[i*chunk_size:(i+1)*chunk_size]]
-
+NN = get_NN()
+NN = remove_dash_from_index_columns(NN)
+NN_area = NN.groupby(level=0).sum()
 SN, SN_ext = get_SN()
 SN = remove_dash_from_index_columns(SN)
 weight, weight_sd = get_weight()

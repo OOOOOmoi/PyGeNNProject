@@ -2,15 +2,15 @@
 
 ARGS="--duration 1000"
 ARGS="$ARGS --buffer"
-ARGS="$ARGS --buffer-size 1000"
+ARGS="$ARGS --buffer-size 100"
 # ARGS="$ARGS --SPARSE"
 # ARGS="$ARGS --wEE 10 --wEI 40 --wIE 60 --wII 50"
 # ARGS="$ARGS --specificW"
 ARGS="$ARGS --poisson"
-# ARGS="$ARGS --AreaIdx 30"
+ARGS="$ARGS --AreaIdx 0"
 ARGS="$ARGS --device 0"
 # ARGS="$ARGS --scaleNeu 150"
 # ARGS="$ARGS --scaleSyn 0.0000001"
 # ARGS="$ARGS --inSyn"
 
-python HMAM.py $ARGS 2>&1 | tee -a run.log
+python HMAM.py $ARGS

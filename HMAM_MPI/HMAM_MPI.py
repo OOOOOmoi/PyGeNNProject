@@ -28,7 +28,7 @@ duration = 1000
 DT_MS = 0.1
 duration_timesteps = int(round(duration / DT_MS))
 ten_percent_timestep = duration_timesteps // 10
-buffer_size = 10000
+buffer_size = 1
 
 def split_indices(num_areas, num_gpus):
     # 平均分配索引到 num_gpus 个子列表
@@ -43,6 +43,11 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
     if isinstance(area_list, str):
         area_list = [area_list]
     model.dt = 0.1
+    model.fuse_postsynaptic_models = True
+    model.default_narrow_sparse_ind_enabled = True
+    model.timing_enabled = True
+    model.default_var_location = VarLocation.HOST_DEVICE
+    model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
     layer_list = net["layer_list"]
     pop_list = net["population_list"]
     lif_init = {"V": init_var("Uniform", {"max": -50.0, "min": -200.0}), "RefracTime": 0.0}
@@ -231,10 +236,10 @@ if __name__ == '__main__':
                     popNum = NN.loc[(area, layer, pop)]
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
 
-    num_gpus = 1
-    procs_per_gpu = 2   # 假设每个GPU跑2个进程
+    num_gpus = 2
+    procs_per_gpu = 1   # 假设每个GPU跑2个进程
     num_workers = num_gpus * procs_per_gpu
-    split_idx = split_indices(4,num_workers)
+    split_idx = split_indices(2,num_workers)
 
     to_master_queues = []
     from_master_queues = []
@@ -250,7 +255,7 @@ if __name__ == '__main__':
         p = Process(target=Part,
                     args=(i,
                           gpu_id,
-                          [area_list[j] for j in split_idx[i]],
+                          [area_list[j-1] for j in split_idx[i]],
                           NN, rate_ext, SN, weight, delay_cc, weight_ext,
                           to_master, from_master))
         p.start()

@@ -24,9 +24,8 @@ for peer in range(size):
 
     reqs = []
     for i in range(n_iter):
-        # post recv first (safe)
-        reqs.append(comm.Irecv([recvbuf, MPI.DOUBLE], source=peer, tag=i))
-        reqs.append(comm.Isend([data, MPI.DOUBLE], dest=peer, tag=i))
+        comm.Alltoall([data, MPI.DOUBLE], [recvbuf, MPI.DOUBLE])
+
 
     MPI.Request.Waitall(reqs)
     t1 = time.perf_counter()

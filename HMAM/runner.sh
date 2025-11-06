@@ -11,6 +11,6 @@ ARGS="$ARGS --AreaIdx 0"
 ARGS="$ARGS --device 0"
 # ARGS="$ARGS --scaleNeu 150"
 # ARGS="$ARGS --scaleSyn 0.0000001"
-# ARGS="$ARGS --inSyn"
+ARGS="$ARGS --inSyn"
 
 python HMAM.py $ARGS

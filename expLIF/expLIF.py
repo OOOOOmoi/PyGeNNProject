@@ -74,9 +74,15 @@ if __name__ == "__main__":
     V=[]
     while model.t < duration:
         model.step_time()
+        pop.vars["RefracTime"].pull_from_device()
+        trefrac=pop.vars["RefracTime"].current_view.copy()
+        # print(trefrac)
         pop.vars["V"].pull_from_device()
         if model.t == 200.0:
-            pop.vars["V"].current_view[:] -= 60.0
+            v=pop.vars["V"].current_view.copy()
+            v-=60.0
+            pop.vars["V"].current_view[:] = v
+            # pop.vars["V"].current_view[:] -= 60.0
             pop.vars["V"].push_to_device()
         # print(pop.params["Ioffset"])
         v=pop.vars["V"].current_view.copy()

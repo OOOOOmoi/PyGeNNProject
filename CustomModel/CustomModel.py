@@ -201,9 +201,9 @@ if __name__ == "__main__":
             )
 
             if args.poisson:
-                ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1000
-                rate = 10 * SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop]
-                rate = rate_ext[pop] / 2
+                ext_weight = SynapsesWeightMean[area][pop]['external']['external']
+                rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 100
+                rate = rate_ext[pop]
                 poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                 model.add_current_source(pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
             # Enable spike recording

@@ -75,7 +75,7 @@ postsyn_dual_exp = pygenn.create_postsynaptic_model(
 model_name = "DualEXP"
 model = GeNNModel("float", model_name)
 model.dt = 0.1
-model.fuse_postsynaptic_models = False
+model.fuse_postsynaptic_models = True
 model.default_narrow_sparse_ind_enabled = True
 model.timing_enabled = True
 model.default_var_location = VarLocation.HOST_DEVICE
@@ -117,7 +117,10 @@ V_post=[]
 while model.t < duration:
     model.step_time()
     dual_exp_pop.out_post.pull_from_device()
-    out_post_array = dual_exp_pop.out_post.view[:,:]
+    if model.t == 200.0:
+        dual_exp_pop.out_post.view[:] += 0.1
+    dual_exp_pop.out_post.push_to_device()
+    out_post_array = dual_exp_pop.out_post.view[:]
     out_post_history.append(out_post_array.copy())
 
     pre.vars["V"].pull_from_device()

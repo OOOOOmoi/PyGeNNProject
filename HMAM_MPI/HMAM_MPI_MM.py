@@ -74,13 +74,14 @@ def merge_spike_data(spike_data_blocks):
                 merged[area][pop].extend(spikes)
     return merged
 
-def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list):
+def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list, net):
     buffer = {}
     weight_array = []
     spike_count = {}
     prob_array = []
     src_pop_num_array = []
     tar_neu_num_array = []
+    R_array = []
     layer_list = net["layer_list"]
     pop_list = net["population_list"]
     for tar_area in tar_area_list:
@@ -105,8 +106,10 @@ def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list):
                     buffer[((tar_area, tar_pop+layer_map[tar_layer]), src)] = np.zeros(delay_step, dtype=np.float32)
                     src_pop_num += 1
                     weight_array.append(w)
+                    R_array.append(1000*net["neuron_params_E"]["tau_m"]/net["neuron_params_E"]["C_m"] \
+                                   if tar_pop == "E" else 1000*net["neuron_params_I"]["tau_m"]/net["neuron_params_I"]["C_m"])
                 src_pop_num_array.append(src_pop_num)
-    return buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array
+    return buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array
 
 def get_neu_vars_array(neuron_populations, merge=True):
     array_V = []
@@ -133,13 +136,18 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
     area_list: list of area names assigned to this worker
     the rest: dataframes passed from master
     """
+    gpu_id = 9 - gpu_id
     print(f"[Worker {worker_rank}] start on GPU {gpu_id}, assigned areas: {area_list}", flush=True)
 
     model = GeNNModel("float", f"HMAM_MPI_CODE/worker{worker_rank}_gpu{gpu_id}",
                       device_select_method=DeviceSelect.MANUAL,
                       manual_device_id=gpu_id)
     model.dt = DT_MS
-
+    model.fuse_postsynaptic_models = True
+    model.default_narrow_sparse_ind_enabled = True
+    model.timing_enabled = True
+    model.default_var_location = VarLocation.HOST_DEVICE
+    model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
     layer_list = net["layer_list"]
     pop_list = net["population_list"]
 
@@ -179,7 +187,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
 
     # create synapse populations assigned to this worker
     exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 2})
-    inh_curr_init = init_postsynaptic("ExpCurr", {"tau": 5})
+    inh_curr_init = init_postsynaptic("ExpCurr", {"tau": 2})
     total_synapses = 0
     syn_group_num = 0
 
@@ -237,9 +245,8 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
     print(f"[Worker {worker_rank}] Model loaded; starting sim loop", flush=True)
     
     # generate spike buffer
-    max_delay_steps = np.ceil(max(delay_cc)/model.dt)
-    spike_count_buffer, weight_array, prob_array,  src_pop_num_array, tar_neu_num_array  = \
-        build_spike_buffer(NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list)
+    spike_count_buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array  = \
+        build_spike_buffer(NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list, net=net)
 
     # inSyn buffer
     inSyn_buffer = np.zeros(total_neurons, dtype=np.float32)
@@ -277,6 +284,15 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
                         post_idxs = start_id + choices.astype(int)
                     inSyn_buffer[post_idxs] += weight_array[sc_idx]
                 sc -= 1
+        inSyn_buffer *= np.exp(model.dt / 4)
+        dv = inSyn_buffer * R_array
+        # zero dv where array_tref <= 0
+        array_tref = np.asarray(array_tref)
+        dv = np.asarray(dv)
+        dv[array_tref <= 0] = 0.0
+        # apply dv to array_V
+        array_V += dv
+        inSyn_buffer *= np.exp(model.dt / 2)
         t_start = perf_counter()
         model.step_time()
         t_end = perf_counter()
@@ -455,7 +471,7 @@ if __name__ == "__main__":
     offsets = comm.bcast(offsets, root=0)
 
     # compute area splits among workers (global)
-    split_idx = split_indices(10, num_workers)  # splits[i] assigned to worker rank=i+1
+    split_idx = split_indices(2, num_workers)  # splits[i] assigned to worker rank=i+1
 
     if rank == 0:
         # master main

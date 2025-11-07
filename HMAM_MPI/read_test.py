@@ -11,13 +11,14 @@ pop_list = net["population_list"]
 if isinstance(area_list, str):
     area_list = [area_list]
 
-def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list):
+def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list, net):
     buffer = {}
     weight_array = []
     spike_count = {}
     prob_array = []
     src_pop_num_array = []
     tar_neu_num_array = []
+    R_array = []
     layer_list = net["layer_list"]
     pop_list = net["population_list"]
     for tar_area in tar_area_list:
@@ -42,8 +43,10 @@ def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list):
                     buffer[((tar_area, tar_pop+layer_map[tar_layer]), src)] = np.zeros(delay_step, dtype=np.float32)
                     src_pop_num += 1
                     weight_array.append(w)
+                    R_array.append(1000*net["neuron_params_E"]["tau_m"]/net["neuron_params_E"]["C_m"] \
+                                   if tar_pop == "E" else 1000*net["neuron_params_I"]["tau_m"]/net["neuron_params_I"]["C_m"])
                 src_pop_num_array.append(src_pop_num)
-    return buffer, spike_count, weight_array, prob_array, src_pop_num_array, tar_neu_num_array
+    return buffer, spike_count, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array
 
 
 def split_indices(num_areas, num_workkers):
@@ -86,8 +89,8 @@ delay_cc = remove_dash_from_index_columns(delay_cc)
 
 
 t_start = perf_counter()
-buffer, spike_counts, weight_array, prob_array, src_pop_num_array, tar_neu_num_array =\
-    build_spike_buffer(NN, SN, delay_cc, weight, dt=0.1, tar_area_list=[area_list[0]])
+buffer, spike_counts, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array =\
+    build_spike_buffer(NN, SN, delay_cc, weight, dt=0.1, tar_area_list=[area_list[0]], net=net)
 t_end = perf_counter()
 print(f"Build spike buffer time: {t_end - t_start:.4f} seconds")
 

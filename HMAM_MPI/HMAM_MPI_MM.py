@@ -74,7 +74,7 @@ def merge_spike_data(spike_data_blocks):
                 merged[area][pop].extend(spikes)
     return merged
 
-def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list, net):
+def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, net, all_area):
     buffer = {}
     weight_array = []
     spike_count = {}
@@ -88,27 +88,37 @@ def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list, net):
         for tar_layer in layer_list:
             for tar_pop in pop_list:
                 tar = (tar_area, tar_layer, tar_pop)
-                tar_neu_num_array.append(NN.loc[tar])
+                n_neu = int(NN.loc[tar])
+                tar_neu_num_array.append(n_neu)
+                Rm = 1000*net["neuron_params_E"]["tau_m"]/net["neuron_params_E"]["C_m"] \
+                            if tar_pop == "E" else 1000*net["neuron_params_I"]["tau_m"]/net["neuron_params_I"]["C_m"]
+                R_array.extend([Rm] * n_neu)
                 src_pop_num = 0
-                for src in SN.index:
-                    src_area, src_layer, src_pop = src
-                    spike_count[(src_area, src_pop+layer_map[src_layer])] = 10
-                    conn_num = SN.loc[tar, src]
-                    w = weight.loc[tar, src] / 1000
-                    if conn_num == 0 or NN.loc[tar] == 0 or NN.loc[src] == 0 or src_area == tar_area:
-                        continue  # 无连接则跳过
-                    prob = conn_num / NN.loc[src] / NN.loc[tar]
-                    prob_array.append(prob)
-                    # 延迟步长
-                    delay_ms = delay_cc.loc[(src_area, tar_area)]
-                    delay_step = int(np.ceil(delay_ms / dt))
-                    # 初始化 buffer
-                    buffer[((tar_area, tar_pop+layer_map[tar_layer]), src)] = np.zeros(delay_step, dtype=np.float32)
-                    src_pop_num += 1
-                    weight_array.append(w)
-                    R_array.append(1000*net["neuron_params_E"]["tau_m"]/net["neuron_params_E"]["C_m"] \
-                                   if tar_pop == "E" else 1000*net["neuron_params_I"]["tau_m"]/net["neuron_params_I"]["C_m"])
+                for src_area in all_area[0:area_num]:
+                    for src_layer in layer_list:
+                        for src_pop in pop_list:
+                            src = (src_area, src_layer, src_pop)
+                            spike_count[(src_area, src_pop+layer_map[src_layer])] = 10
+                            conn_num = SN.loc[tar, src]
+                            w = weight.loc[tar, src] / 1000
+                            if conn_num == 0 or NN.loc[tar] == 0 or NN.loc[src] == 0 or src_area == tar_area:
+                                continue  # 无连接则跳过
+                            prob = conn_num / NN.loc[src] / NN.loc[tar]
+                            prob_array.append(prob)
+                            # 延迟步长
+                            delay_ms = delay_cc.loc[(src_area, tar_area)]
+                            delay_step = int(np.ceil(delay_ms / dt))
+                            # 初始化 buffer
+                            buffer[((tar_area, tar_pop+layer_map[tar_layer]), ((src_area, src_pop+layer_map[src_layer])))] = np.zeros(delay_step, dtype=np.float32)
+                            src_pop_num += 1
+                            weight_array.append(w)
                 src_pop_num_array.append(src_pop_num)
+        # convert collected lists to numpy arrays for efficient numeric ops
+        weight_array = np.array(weight_array, dtype=np.float32)
+        prob_array = np.array(prob_array, dtype=np.float32)
+        src_pop_num_array = np.array(src_pop_num_array, dtype=np.int32)
+        tar_neu_num_array = np.array(tar_neu_num_array, dtype=np.int32)
+        R_array = np.array(R_array, dtype=np.float32)
     return buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array
 
 def get_neu_vars_array(neuron_populations, merge=True):
@@ -129,7 +139,7 @@ def get_neu_vars_array(neuron_populations, merge=True):
     return array_V, array_tref
 
 # ---------------- Worker Part ----------------
-def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, weight_ext, all_area_list):
+def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, weight_ext, area_num):
     """
     worker_rank: MPI rank (>=1)
     gpu_id: GPU id on local node to bind (int)
@@ -246,7 +256,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
     
     # generate spike buffer
     spike_count_buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array  = \
-        build_spike_buffer(NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list, net=net)
+        build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list, net=net, all_area=area_list)
 
     # inSyn buffer
     inSyn_buffer = np.zeros(total_neurons, dtype=np.float32)
@@ -256,43 +266,51 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
     # simulation loop - note buffer_size timesteps per communication round
     while model.t < duration:
 
-        array_V, array_tref = get_neu_vars_array(neuron_populations)
-        spike_array = []
-        for key, buf in spike_count_buffer.items():
-            deliver_step = (current_step - len(buf)) % len(buf)
-            arriving_spikes = buf[deliver_step]
-            spike_array.append(arriving_spikes)
-            # update_membrane_potential(tar, arriving_spikes)
-            spike_count_buffer[key][deliver_step] = 0.0
-        
-        cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
-        for sc_idx, sc in enumerate(spike_array):
-            if sc == 0:
-                continue
-            group_idx = int(np.searchsorted(cum_src, sc_idx + 1))
-            start_id = int(np.sum(tar_neu_num_array[:group_idx])) if group_idx > 0 else 0
-            group_neu_count = int(tar_neu_num_array[group_idx]) if group_idx < len(tar_neu_num_array) else 0
-            prob = prob_array[sc_idx]
-            while sc >= 0:
-                # 按二项分布从 group_neu_count 个目标神经元中抽取命中数 k，再随机选择 k 个目标神经元并累加权重
-                k = np.random.binomial(group_neu_count, prob)
-                if k > 0:
-                    if k >= group_neu_count:
-                        post_idxs = np.arange(start_id, start_id + group_neu_count, dtype=int)
-                    else:
-                        choices = np.random.choice(group_neu_count, size=k, replace=False)
-                        post_idxs = start_id + choices.astype(int)
-                    inSyn_buffer[post_idxs] += weight_array[sc_idx]
-                sc -= 1
-        inSyn_buffer *= np.exp(model.dt / 4)
-        dv = inSyn_buffer * R_array
-        # zero dv where array_tref <= 0
-        array_tref = np.asarray(array_tref)
-        dv = np.asarray(dv)
-        dv[array_tref <= 0] = 0.0
-        # apply dv to array_V
-        array_V += dv
-        inSyn_buffer *= np.exp(model.dt / 2)
+        if not spike_count_buffer:
+            array_V, array_tref = get_neu_vars_array(neuron_populations)
+            spike_array = []
+            for key, buf in spike_count_buffer.items():
+                deliver_step = (current_step - len(buf)) % len(buf)
+                arriving_spikes = buf[deliver_step]
+                spike_array.append(arriving_spikes)
+                # update_membrane_potential(tar, arriving_spikes)
+                spike_count_buffer[key][deliver_step] = 0.0
+            
+            cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
+            for sc_idx, sc in enumerate(spike_array):
+                if sc == 0:
+                    continue
+                group_idx = int(np.searchsorted(cum_src, sc_idx + 1))
+                start_id = int(np.sum(tar_neu_num_array[:group_idx])) if group_idx > 0 else 0
+                group_neu_count = int(tar_neu_num_array[group_idx]) if group_idx < len(tar_neu_num_array) else 0
+                prob = prob_array[sc_idx]
+                while sc >= 0:
+                    # 按二项分布从 group_neu_count 个目标神经元中抽取命中数 k，再随机选择 k 个目标神经元并累加权重
+                    k = np.random.binomial(group_neu_count, prob)
+                    if k > 0:
+                        if k >= group_neu_count:
+                            post_idxs = np.arange(start_id, start_id + group_neu_count, dtype=int)
+                        else:
+                            choices = np.random.choice(group_neu_count, size=k, replace=False)
+                            post_idxs = start_id + choices.astype(int)
+                        inSyn_buffer[post_idxs] += weight_array[sc_idx]
+                    sc -= 1
+            inSyn_buffer *= np.exp(model.dt / 4)
+            dv = inSyn_buffer * R_array
+            # zero dv where array_tref <= 0
+            array_tref = np.asarray(array_tref)
+            dv = np.asarray(dv)
+            dv[array_tref <= 0] = 0.0
+            # apply dv to array_V
+            array_V += dv
+            inSyn_buffer *= np.exp(model.dt / 2)
+            for area in neuron_populations.keys():
+                for pop in neuron_populations[area].keys():
+                    neu_pop = neuron_populations[area][pop]
+                    pop_size = neu_pop.num_neurons
+                    neu_pop.vars["V"].current_view[:] = array_V[:pop_size]
+                    neu_pop.var["V"].push_to_device()
+                    array_V = array_V[pop_size:]
         t_start = perf_counter()
         model.step_time()
         t_end = perf_counter()
@@ -323,11 +341,11 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
             rate_info = updates["rate"]
             count_info = updates["spike_count"]
             # update spike buffer
-            for (tar, src), buf in spike_count_buffer.items():
-                src_area, src_pop = src
-                spike_count = count_info[src_area][src_pop]  # 当前时间步源群体的 spike 数
-                buf[current_step % len(buf)] += spike_count
-            pass
+            if not spike_count_buffer:
+                for (tar, src), buf in spike_count_buffer.items():
+                    spike_count = count_info[src]  # 当前时间步源群体的 spike 数
+                    buf[current_step % len(buf)] += spike_count
+                pass
         current_step += 1
 
         if (model.timestep % ten_percent_timestep) == 0:
@@ -471,7 +489,8 @@ if __name__ == "__main__":
     offsets = comm.bcast(offsets, root=0)
 
     # compute area splits among workers (global)
-    split_idx = split_indices(2, num_workers)  # splits[i] assigned to worker rank=i+1
+    area_num = 2
+    split_idx = split_indices(area_num, num_workers)  # splits[i] assigned to worker rank=i+1
 
     if rank == 0:
         # master main
@@ -483,4 +502,4 @@ if __name__ == "__main__":
         local_gpu_id = (rank - 1) % NUM_GPUS
         assigned_areas = [area_list[j-1] for j in split_idx[worker_rank - 1]]
         # call Part to build model & run
-        Part(worker_rank, local_gpu_id, assigned_areas, NN, rate_ext, SN, weight, delay_cc, weight_ext, area_list)
+        Part(worker_rank, local_gpu_id, assigned_areas, NN, rate_ext, SN, weight, delay_cc, weight_ext, area_num)

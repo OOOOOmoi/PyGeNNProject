@@ -11,7 +11,7 @@ pop_list = net["population_list"]
 if isinstance(area_list, str):
     area_list = [area_list]
 
-def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list, net):
+def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, net):
     buffer = {}
     weight_array = []
     spike_count = {}
@@ -19,34 +19,46 @@ def build_spike_buffer(NN, SN, delay_cc, weight, dt, tar_area_list, net):
     src_pop_num_array = []
     tar_neu_num_array = []
     R_array = []
+    area_list = net["area_list"]
+    area_list = [s.replace("-", "") for s in area_list]
     layer_list = net["layer_list"]
     pop_list = net["population_list"]
     for tar_area in tar_area_list:
         for tar_layer in layer_list:
             for tar_pop in pop_list:
                 tar = (tar_area, tar_layer, tar_pop)
-                tar_neu_num_array.append(NN.loc[tar])
+                n_neu = int(NN.loc[tar])
+                tar_neu_num_array.append(n_neu)
+                Rm = 1000*net["neuron_params_E"]["tau_m"]/net["neuron_params_E"]["C_m"] \
+                            if tar_pop == "E" else 1000*net["neuron_params_I"]["tau_m"]/net["neuron_params_I"]["C_m"]
+                R_array.extend([Rm] * n_neu)
                 src_pop_num = 0
-                for src in SN.index:
-                    src_area, src_layer, src_pop = src
-                    spike_count[(src_area, src_pop+layer_map[src_layer])] = 10
-                    conn_num = SN.loc[tar, src]
-                    w = weight.loc[tar, src] / 1000
-                    if conn_num == 0 or NN.loc[tar] == 0 or NN.loc[src] == 0 or src_area == tar_area:
-                        continue  # 无连接则跳过
-                    prob = conn_num / NN.loc[src] / NN.loc[tar]
-                    prob_array.append(prob)
-                    # 延迟步长
-                    delay_ms = delay_cc.loc[(src_area, tar_area)]
-                    delay_step = int(np.ceil(delay_ms / dt))
-                    # 初始化 buffer
-                    buffer[((tar_area, tar_pop+layer_map[tar_layer]), src)] = np.zeros(delay_step, dtype=np.float32)
-                    src_pop_num += 1
-                    weight_array.append(w)
-                    R_array.append(1000*net["neuron_params_E"]["tau_m"]/net["neuron_params_E"]["C_m"] \
-                                   if tar_pop == "E" else 1000*net["neuron_params_I"]["tau_m"]/net["neuron_params_I"]["C_m"])
+                for src_area in area_list[0:area_num]:
+                    for src_layer in layer_list:
+                        for src_pop in pop_list:
+                            src = (src_area, src_layer, src_pop)
+                            spike_count[(src_area, src_pop+layer_map[src_layer])] = 10
+                            conn_num = SN.loc[tar, src]
+                            w = weight.loc[tar, src] / 1000
+                            if conn_num == 0 or NN.loc[tar] == 0 or NN.loc[src] == 0 or src_area == tar_area:
+                                continue  # 无连接则跳过
+                            prob = conn_num / NN.loc[src] / NN.loc[tar]
+                            prob_array.append(prob)
+                            # 延迟步长
+                            delay_ms = delay_cc.loc[(src_area, tar_area)]
+                            delay_step = int(np.ceil(delay_ms / dt))
+                            # 初始化 buffer
+                            buffer[((tar_area, tar_pop+layer_map[tar_layer]), ((src_area, src_pop+layer_map[src_layer])))] = np.zeros(delay_step, dtype=np.float32)
+                            src_pop_num += 1
+                            weight_array.append(w)
                 src_pop_num_array.append(src_pop_num)
-    return buffer, spike_count, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array
+        # convert collected lists to numpy arrays for efficient numeric ops
+        weight_array = np.array(weight_array, dtype=np.float32)
+        prob_array = np.array(prob_array, dtype=np.float32)
+        src_pop_num_array = np.array(src_pop_num_array, dtype=np.int32)
+        tar_neu_num_array = np.array(tar_neu_num_array, dtype=np.int32)
+        R_array = np.array(R_array, dtype=np.float32)
+    return buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array
 
 
 def split_indices(num_areas, num_workkers):
@@ -89,16 +101,17 @@ delay_cc = remove_dash_from_index_columns(delay_cc)
 
 
 t_start = perf_counter()
-buffer, spike_counts, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array =\
-    build_spike_buffer(NN, SN, delay_cc, weight, dt=0.1, tar_area_list=[area_list[0]], net=net)
+area_num = 68
+buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array =\
+    build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=0.1, tar_area_list=[area_list[0]], net=net)
 t_end = perf_counter()
 print(f"Build spike buffer time: {t_end - t_start:.4f} seconds")
 
 current_step = 19
 # 1. 将新 spikes 加入 delay buffer
 t_start = perf_counter()
-for (src, tar), buf in buffer.items():
-    spike_count = spike_counts[src]  # 当前时间步源群体的 spike 数
+for (tar, src), buf in buffer.items():
+    spike_count = 10  # 当前时间步源群体的 spike 数
     buf[current_step % len(buf)] += spike_count
 t_end = perf_counter()
 print(f"Add spikes to buffer time: {t_end - t_start:.4f} seconds")

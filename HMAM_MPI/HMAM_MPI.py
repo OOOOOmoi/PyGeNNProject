@@ -288,11 +288,14 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
             inSyn_buffer *= np.exp(model.dt / 2)
             for area in neuron_populations.keys():
                 for pop in neuron_populations[area].keys():
-                    neu_pop = neuron_populations[area][pop]
-                    pop_size = neu_pop.num_neurons
-                    neu_pop.vars["V"].current_view[:] = array_V[:pop_size]
-                    neu_pop.vars["V"].push_to_device()
-                    array_V = array_V[pop_size:]
+                    # 如果当前 (area, pop) 是某些目标键的 tar，则把本步的 spike_count 累加到对应的 buffer 槽中
+                    tar_key = (area, pop)
+                    if any(tar_key == k[0] for k in spike_count_buffer.keys()):
+                        neu_pop = neuron_populations[area][pop]
+                        pop_size = neu_pop.num_neurons
+                        neu_pop.vars["V"].current_view[:] = array_V[:pop_size]
+                        neu_pop.vars["V"].push_to_device()
+                        array_V = array_V[pop_size:]
             time_end = perf_counter()
             update_time = time_end - time_start
         t_start = perf_counter()
@@ -394,10 +397,10 @@ if __name__ == '__main__':
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
 
     num_gpus = 2
-    procs_per_gpu = 1   # 假设每个GPU跑2个进程
+    procs_per_gpu = 3   # 假设每个GPU跑2个进程
     num_workers = num_gpus * procs_per_gpu
-    split_idx = split_indices(2,num_workers)
-    split_idx = [[2], [3]]
+    split_idx = split_indices(6,num_workers)
+    # split_idx = [[2], [3]]
     to_master_queues = []
     from_master_queues = []
     processes = []

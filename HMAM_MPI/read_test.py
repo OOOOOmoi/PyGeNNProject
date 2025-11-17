@@ -107,6 +107,9 @@ buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array 
 t_end = perf_counter()
 print(f"Build spike buffer time: {t_end - t_start:.4f} seconds")
 
+for k in buffer.keys():
+    print("Buffer key:", k, "Buffer size:", len(buffer[k]))
+
 current_step = 0
 # 1. 将新 spikes 加入 delay buffer
 t_start = perf_counter()

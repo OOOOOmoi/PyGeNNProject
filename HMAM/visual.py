@@ -203,5 +203,5 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
     fig_hist.tight_layout()
     os.makedirs("output/raster", exist_ok=True)
     os.makedirs("output/hist", exist_ok=True)
-    fig_raster.savefig(f"output/raster/raster_{model_name}.png")
-    fig_hist.savefig(f"output/hist/hist_{model_name}.png")
+    fig_raster.savefig(f"output/raster/raster_{area}.png")
+    fig_hist.savefig(f"output/hist/hist_{area}.png")

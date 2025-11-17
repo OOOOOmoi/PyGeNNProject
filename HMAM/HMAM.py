@@ -172,7 +172,7 @@ if __name__ == "__main__":
                         else:
                             neuron_pop = model.add_neuron_population(popName, popNum, "LIF", params, lif_init)
                         if args.poisson:
-                            ext_weight = weight_ext.loc[(area, layer, pop)]
+                            ext_weight = weight_ext.loc[(area, layer, pop)] / 1
                             K = SN_ext.loc[(area, layer, pop)] / popNum
                             rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight)
                             rate = rate_ext.loc[(area, layer, pop)] * 100
@@ -314,8 +314,13 @@ if __name__ == "__main__":
     # Merge data
     if args.save_spike:
         save_spike(spike_data)
-    visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
-                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+    for area, area_dict in spike_data.items():
+        spike_data_temp = {}
+        spike_data_temp[area] = area_dict
+        visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
+                model_name="HMAM", NeuronNumber=NeuronNumber)
+    # visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+    #             group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
     connectom(suffix, model_name, SN, weight, NN, area_list, layer_list, pop_list, title='Synaptic Connectivity Overview')
 
     # visualize_single(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 

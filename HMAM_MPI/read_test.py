@@ -19,8 +19,8 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, ne
     src_pop_num_array = []
     tar_neu_num_array = []
     R_array = []
-    area_list = net["area_list"]
-    area_list = [s.replace("-", "") for s in area_list]
+    all_area = net["area_list"]
+    all_area = [s.replace("-", "") for s in all_area]
     layer_list = net["layer_list"]
     pop_list = net["population_list"]
     for tar_area in tar_area_list:
@@ -28,12 +28,9 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, ne
             for tar_pop in pop_list:
                 tar = (tar_area, tar_layer, tar_pop)
                 n_neu = int(NN.loc[tar])
-                tar_neu_num_array.append(n_neu)
-                Rm = 1000*net["neuron_params_E"]["tau_m"]/net["neuron_params_E"]["C_m"] \
-                            if tar_pop == "E" else 1000*net["neuron_params_I"]["tau_m"]/net["neuron_params_I"]["C_m"]
-                R_array.extend([Rm] * n_neu)
+                Rm = 45.4 if tar_pop == "E" else 100
                 src_pop_num = 0
-                for src_area in area_list[0:area_num]:
+                for src_area in all_area[1:area_num+1]:
                     for src_layer in layer_list:
                         for src_pop in pop_list:
                             src = (src_area, src_layer, src_pop)
@@ -51,7 +48,10 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, ne
                             buffer[((tar_area, tar_pop+layer_map[tar_layer]), ((src_area, src_pop+layer_map[src_layer])))] = np.zeros(delay_step, dtype=np.float32)
                             src_pop_num += 1
                             weight_array.append(w)
-                src_pop_num_array.append(src_pop_num)
+                if src_pop_num:
+                    src_pop_num_array.append(src_pop_num)
+                    tar_neu_num_array.append(n_neu)
+                    R_array.extend([Rm] * n_neu)
         # convert collected lists to numpy arrays for efficient numeric ops
         weight_array = np.array(weight_array, dtype=np.float32)
         prob_array = np.array(prob_array, dtype=np.float32)
@@ -101,13 +101,13 @@ delay_cc = remove_dash_from_index_columns(delay_cc)
 
 
 t_start = perf_counter()
-area_num = 68
+area_num = 2
 buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array =\
-    build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=0.1, tar_area_list=[area_list[0]], net=net)
+    build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=0.1, tar_area_list=[area_list[1]], net=net)
 t_end = perf_counter()
 print(f"Build spike buffer time: {t_end - t_start:.4f} seconds")
 
-current_step = 19
+current_step = 0
 # 1. 将新 spikes 加入 delay buffer
 t_start = perf_counter()
 for (tar, src), buf in buffer.items():

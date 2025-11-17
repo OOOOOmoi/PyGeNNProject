@@ -94,7 +94,7 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, ne
                             if tar_pop == "E" else 1000*net["neuron_params_I"]["tau_m"]/net["neuron_params_I"]["C_m"]
                 R_array.extend([Rm] * n_neu)
                 src_pop_num = 0
-                for src_area in all_area[0:area_num]:
+                for src_area in all_area[1:area_num+1]:
                     for src_layer in layer_list:
                         for src_pop in pop_list:
                             src = (src_area, src_layer, src_pop)
@@ -187,7 +187,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
                         neuron_pop = model.add_neuron_population(popName, popNum, "LIF", params, lif_init)
 
                         ext_weight = weight_ext.loc[(area, layer, pop)]
-                        rate = rate_ext.loc[(area, layer, pop)] * 1000
+                        rate = rate_ext.loc[(area, layer, pop)] * 1
                         poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                         model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
 
@@ -266,7 +266,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
     # simulation loop - note buffer_size timesteps per communication round
     while model.t < duration:
 
-        if not spike_count_buffer:
+        if spike_count_buffer:
             array_V, array_tref = get_neu_vars_array(neuron_populations)
             spike_array = []
             for key, buf in spike_count_buffer.items():
@@ -309,7 +309,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
                     neu_pop = neuron_populations[area][pop]
                     pop_size = neu_pop.num_neurons
                     neu_pop.vars["V"].current_view[:] = array_V[:pop_size]
-                    neu_pop.var["V"].push_to_device()
+                    neu_pop.vars["V"].push_to_device()
                     array_V = array_V[pop_size:]
         t_start = perf_counter()
         model.step_time()
@@ -341,7 +341,7 @@ def Part(worker_rank, gpu_id, area_list, NN, rate_ext, SN, weight, delay_cc, wei
             rate_info = updates["rate"]
             count_info = updates["spike_count"]
             # update spike buffer
-            if not spike_count_buffer:
+            if spike_count_buffer:
                 for (tar, src), buf in spike_count_buffer.items():
                     spike_count = count_info[src]  # 当前时间步源群体的 spike 数
                     buf[current_step % len(buf)] += spike_count
@@ -490,8 +490,8 @@ if __name__ == "__main__":
 
     # compute area splits among workers (global)
     area_num = 2
-    split_idx = split_indices(area_num, num_workers)  # splits[i] assigned to worker rank=i+1
-
+    # split_idx = split_indices(area_num, num_workers)  # splits[i] assigned to worker rank=i+1
+    split_idx = [[2], [3]]
     if rank == 0:
         # master main
         Master(NN, SN, rate_ext, weight, delay_cc, weight_ext, NeuronNumber_global, offsets)

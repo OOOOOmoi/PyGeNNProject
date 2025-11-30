@@ -81,9 +81,9 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    # area_list = net_config['area_list'][3]
+    area_list = net_config['area_list'][0:4]
     # area_list = [net_config['area_list'][1], net_config['area_list'][9], net_config['area_list'][12]]
-    area_list = net_config['area_list'][int(args.AreaIdx)]
+    # area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
         area_list = [area_list]
     area_list = [s.replace("-", "") for s in area_list]
@@ -174,8 +174,8 @@ if __name__ == "__main__":
                         if args.poisson:
                             ext_weight = weight_ext.loc[(area, layer, pop)] / 1
                             K = SN_ext.loc[(area, layer, pop)] / popNum
-                            rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight)
-                            rate = rate_ext.loc[(area, layer, pop)] * 100
+                            # rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight) * 1
+                            rate = rate_ext.loc[(area, layer, pop)] * 1
                             # rate = 10*K
                             poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                             model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)

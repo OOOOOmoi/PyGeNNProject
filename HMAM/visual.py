@@ -69,7 +69,7 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
     if len(spike_data) == 1:
         axs_raster = [axs_raster]
 
-    fig_hist, axs_hist = plt.subplots(len(spike_data), 1, figsize=(10, 4 * len(spike_data)))
+    fig_hist, axs_hist = plt.subplots(len(spike_data), 1, figsize=(12, 5 * len(spike_data)))
     if len(spike_data) == 1:
         axs_hist = [axs_hist]
 

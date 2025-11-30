@@ -23,9 +23,13 @@ from scipy.stats import norm
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 from multiprocessing import Process, Queue, Pipe
 from collections import defaultdict
-from numba import njit, prange
+from numba import njit, prange, cuda, int32, float32
+from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float32
+import cupy as cp
+import math
+import multiprocessing as mp
 NUM_THREADS_PER_SPIKE = 1
-duration = 1000
+duration = 200
 DT_MS = 0.1
 duration_timesteps = int(round(duration / DT_MS))
 ten_percent_timestep = duration_timesteps // 10
@@ -46,6 +50,7 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, ne
     R_array = []
     all_area = net["area_list"]
     all_area = [s.replace("-", "") for s in all_area]
+    all_area_list = [all_area[1], all_area[2], all_area[4], all_area[12]]
     layer_list = net["layer_list"]
     pop_list = net["population_list"]
     for tar_area in tar_area_list:
@@ -55,7 +60,7 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, ne
                 n_neu = int(NN.loc[tar])
                 Rm = 45.4 if tar_pop == "E" else 100
                 src_pop_num = 0
-                for src_area in all_area[1:area_num+1]:
+                for src_area in all_area[0:area_num]:
                     for src_layer in layer_list:
                         for src_pop in pop_list:
                             src = (src_area, src_layer, src_pop)
@@ -107,6 +112,51 @@ def fast_update_inSyn(spike_array, cum_src, tar_neu_num_array, prob_array, weigh
             for i in range(total_hits):
                 inSyn_buffer[start_id + post_idxs[i]] += weight
 
+@cuda.jit
+def fast_update_inSyn_gpu(spike_array, cum_src, tar_neu_num_array, prob_array, weight_array, inSyn_buffer, rng_states):
+    idx = cuda.grid(1)
+    if idx >= spike_array.size:
+        return
+
+    sc = int32(spike_array[idx])
+    if sc <= 0:
+        return
+
+    # binary-search for group index using cum_src (assumed int32 device array)
+    left = 0
+    right = cum_src.size - 1
+    group_idx = 0
+    target = idx + 1  # searchsorted semantics used in host code
+
+    while left <= right:
+        mid = (left + right) >> 1
+        if target <= cum_src[mid]:
+            group_idx = mid
+            right = mid - 1
+        else:
+            left = mid + 1
+
+    # compute start_id (sum tar_neu_num_array[:group_idx])
+    start_id = int32(0)
+    for i in range(group_idx):
+        start_id += int32(tar_neu_num_array[i])
+
+    group_neu_count = int32(tar_neu_num_array[group_idx])
+    prob = float32(prob_array[idx])
+    weight = float32(weight_array[idx])
+
+    total_hits = int32(sc * group_neu_count * prob)
+    if total_hits <= 0:
+        return
+
+    # draw random posts using rng_states and thread idx
+    for _ in range(total_hits):
+        # xoroshiro128p_uniform_float32 takes (states, idx) and returns float32 in [0,1)
+        u = xoroshiro128p_uniform_float32(rng_states, idx)
+        post = int32(u * group_neu_count)
+        # atomic add to avoid race conditions
+        cuda.atomic.add(inSyn_buffer, start_id + post, weight)
+
 def get_neu_vars_array(neuron_populations, merge=True):
     array_V = []
     array_tref = []
@@ -125,7 +175,7 @@ def get_neu_vars_array(neuron_populations, merge=True):
     return array_V, array_tref
 
 def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weight_ext, area_num,
-         to_master: Queue, from_master: Queue):
+         to_master: Queue, from_master: Queue, done_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
     model = GeNNModel("float", f"HMAM_MPI_CODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
     if isinstance(area_list, str):
@@ -162,7 +212,7 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
                                     "TauRefrac": neuronParam['t_ref']}
                         neuron_pop = model.add_neuron_population(popName, popNum, "LIF", params, lif_init)
                         ext_weight = weight_ext.loc[(area, layer, pop)]
-                        rate = rate_ext.loc[(area, layer, pop)] * 100
+                        rate = rate_ext.loc[(area, layer, pop)] * 1
                         # rate = 10*K
                         poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                         model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
@@ -239,26 +289,67 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
     spike_count_buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array  = \
         build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list, net=net)
 
+    cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
     # inSyn buffer
-    inSyn_buffer = np.zeros(total_neurons, dtype=np.float32)
+    inSyn_buffer = np.zeros(len(R_array), dtype=np.float32)
+    cuda.select_device(gpu_id)
+
+    # 需要在循环外初始化一次
+    d_cum_src   = cuda.to_device(cum_src.astype(np.int32))
+    d_tar_num   = cuda.to_device(tar_neu_num_array.astype(np.int32))
+    d_prob      = cuda.to_device(prob_array.astype(np.float32))
+    d_weight    = cuda.to_device(weight_array.astype(np.float32))
+    d_inSyn     = cuda.to_device(inSyn_buffer.astype(np.float32))
+
+    d_spike_array = cuda.device_array(len(spike_count_buffer), dtype=np.int32)
+
+    rng_states = create_xoroshiro128p_states(len(spike_count_buffer), seed=1234)
+
+    threads = 32
+    blocks = max(1, math.ceil(len(spike_count_buffer) / threads))
 
     flag = 0
     current_step = 0
+    update_time_V = 0
+    update_time_inSyn = 0
+    update_time_spike = 0
+    update_time = 0
+    update_time_decay = 0
+    spike_history = []
     while model.t < duration:
 
         if spike_count_buffer:
+            time_start_total = perf_counter()
             time_start = perf_counter()
-            array_V, array_tref = get_neu_vars_array(neuron_populations)
-            spike_array = []
-            for key, buf in spike_count_buffer.items():
-                deliver_step = (current_step - len(buf)) % len(buf)
-                arriving_spikes = buf[deliver_step]
-                spike_array.append(arriving_spikes)
-                # update_membrane_potential(tar, arriving_spikes)
-                spike_count_buffer[key][deliver_step] = 0.0
-            
-            cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
+            # _, array_tref = get_neu_vars_array(neuron_populations)
+            spike_array = np.array([ buf[(current_step - len(buf)) % len(buf)] 
+                            for buf in spike_count_buffer.values() ], dtype=np.int32)
+            time_end = perf_counter()
+            update_time_spike = time_end - time_start
+            # jit即时编译加速
+            time_start = perf_counter()
             fast_update_inSyn(spike_array, cum_src, tar_neu_num_array, prob_array, weight_array, inSyn_buffer)
+            time_end = perf_counter()
+            update_time_inSyn = time_end - time_start
+
+            # numba.cuda加速
+            # time_start = perf_counter()
+            # d_spike_array.copy_to_device(spike_array)
+            # fast_update_inSyn_gpu[blocks, threads](
+            #     d_spike_array,
+            #     d_cum_src,
+            #     d_tar_num,
+            #     d_prob,
+            #     d_weight,
+            #     d_inSyn,
+            #     rng_states
+            # )
+            # cuda.synchronize()
+            # d_inSyn.copy_to_host(inSyn_buffer)
+            # time_end = perf_counter()
+            # update_time_inSyn = time_end - time_start
+
+            # 原始 numpy 实现（慢）
             # for sc_idx, sc in enumerate(spike_array):
             #     if sc == 0:
             #         continue
@@ -277,27 +368,36 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
             #                 post_idxs = start_id + choices.astype(int)
             #             inSyn_buffer[post_idxs] += weight_array[sc_idx]
             #         sc -= 1
+            time_start = perf_counter()
             inSyn_buffer *= np.exp(model.dt / 4)
             dv = inSyn_buffer * R_array
-            # zero dv where array_tref <= 0
-            array_tref = np.asarray(array_tref)
             dv = np.asarray(dv)
-            dv[array_tref <= 0] = 0.0
-            # apply dv to array_V
-            array_V += dv
             inSyn_buffer *= np.exp(model.dt / 2)
+            time_end = perf_counter()
+            update_time_decay = time_end - time_start
+
+            time_start = perf_counter()
             for area in neuron_populations.keys():
                 for pop in neuron_populations[area].keys():
                     # 如果当前 (area, pop) 是某些目标键的 tar，则把本步的 spike_count 累加到对应的 buffer 槽中
                     tar_key = (area, pop)
                     if any(tar_key == k[0] for k in spike_count_buffer.keys()):
                         neu_pop = neuron_populations[area][pop]
+                        neu_pop.vars["V"].pull_from_device()
+                        neu_pop.vars["RefracTime"].pull_from_device()
                         pop_size = neu_pop.num_neurons
-                        neu_pop.vars["V"].current_view[:] = array_V[:pop_size]
+                        array_V = neu_pop.vars["V"].current_view.copy()
+                        array_tref = neu_pop.vars["RefracTime"].current_view.copy()
+                        dv_ = dv[:pop_size]
+                        dv_[array_tref <= 0] = 0.0
+                        array_V += dv_
+                        neu_pop.vars["V"].current_view[:] = array_V
                         neu_pop.vars["V"].push_to_device()
-                        array_V = array_V[pop_size:]
+                        dv = dv[pop_size:]
             time_end = perf_counter()
-            update_time = time_end - time_start
+            update_time_V = time_end - time_start
+            time_end_total = perf_counter()
+            update_time = time_end_total - time_start_total
         t_start = perf_counter()
         model.step_time()
         t_end = perf_counter()
@@ -310,6 +410,12 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
             }
             model.pull_recording_buffers_from_device()
             record_spike(neuron_populations, spike_data_temp)
+            spike_history.append(spike_data_temp)
+            # 统计 (只统计，不传spike_raw)
+            local_stat = defaultdict(lambda: defaultdict(int))
+            for area in neuron_populations.keys():
+                for pop in neuron_populations[area].keys():
+                    local_stat[area][pop] += len(spike_data_temp[area][pop])   # 当前step群体spike数
 
             # 把当前进程的数据发给主进程
             msg = {
@@ -317,11 +423,15 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
                 "spike_data": spike_data_temp,
                 "timestamp": time.perf_counter(),
                 "step_time": step_time,
+                "update_V_time": update_time_V,
+                "update_inSyn_time": update_time_inSyn,
+                "update_spike_time": update_time_spike,
+                "update_decay_time": update_time_decay,
                 "update_time": update_time
             }
 
             to_master.put(msg)
-
+            done_queue.put(worker_id)
             # 等待主进程的新指令（同步点）
             msg = from_master.get()
             if msg["type"] == "continue":
@@ -344,6 +454,11 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
         if (model.timestep % ten_percent_timestep) == 0:
             flag += 1
             print(f"{worker_id}-th Proccess {flag * 10}%")
+
+    # worker进程写磁盘更好
+    with open(f"spike_worker_{worker_id}.pkl", "wb") as f:
+        pickle.dump(spike_history, f)
+    to_master.put({"worker_id": worker_id, "final_file": f"spike_worker_{worker_id}.pkl"})
 
 
 def merge_spike_data(spike_data_blocks):
@@ -397,14 +512,15 @@ if __name__ == '__main__':
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
 
     num_gpus = 2
-    procs_per_gpu = 3   # 假设每个GPU跑2个进程
+    procs_per_gpu = 2   # 假设每个GPU跑2个进程
     num_workers = num_gpus * procs_per_gpu
-    split_idx = split_indices(6,num_workers)
-    # split_idx = [[2], [3]]
+    split_idx = split_indices(4,num_workers)
+    # split_idx = [[2], [3], [5], [13]]
     to_master_queues = []
     from_master_queues = []
     processes = []
-
+    # 在主进程创建时，新增一个 done_queue 用于异步通知谁完成了
+    done_queue = Queue()
     # 创建双向队列
     for i in range(num_workers):
         to_master = Queue()
@@ -417,7 +533,7 @@ if __name__ == '__main__':
                           gpu_id,
                           [area_list[j-1] for j in split_idx[i]],
                           NN, rate_ext, SN, weight, delay_cc, weight_ext, num_workers,
-                          to_master, from_master))
+                          to_master, from_master, done_queue))
         p.start()
         processes.append(p)
 
@@ -430,7 +546,8 @@ if __name__ == '__main__':
 
         # ---- 等待所有子进程提交数据 ----
         for i in range(num_workers):
-            msg = to_master_queues[i].get()
+            wid = done_queue.get()       # 谁先完成谁的 id 先到
+            msg = to_master_queues[wid].get()
             recv_time = time.perf_counter()
 
             latency = recv_time - msg["timestamp"]
@@ -442,6 +559,10 @@ if __name__ == '__main__':
                 f"速度 {speed_MBps:.2f} MB/s, "
                 f"大小 {data_size/1024:.1f} KB, "
                 f"模拟时间 {msg['step_time']*1000:.3f} ms, "
+                f"更新spike array时间 {msg['update_spike_time']*1000:.3f} ms, "
+                f"更新电流buffer时间 {msg['update_inSyn_time']*1000:.3f} ms, "
+                f"电流buffer衰减时间 {msg['update_decay_time']*1000:.3f} ms, "
+                f"更新膜电位时间 {msg['update_V_time']*1000:.3f} ms, "
                 f"更新时间 {msg['update_time']*1000:.3f} ms")
 
             spike_data_blocks.append(msg["spike_data"])
@@ -485,4 +606,4 @@ if __name__ == '__main__':
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
         visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
-                model_name="HMAM", NeuronNumber=NeuronNumber)
+                model_name="HMAM", NeuronNumber=NeuronNumber, drop=0)

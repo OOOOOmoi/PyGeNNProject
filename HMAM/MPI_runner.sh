@@ -17,12 +17,12 @@ trap "echo 'Stopping runner...'; kill 0; exit" SIGINT SIGTERM
 
 # 参数范围
 values1=$(seq 10 10 10)
-values2=$(seq 40 10 40)
-values3=$(seq 60 10 60)
-values4=$(seq 50 10 50)
-values5=$(seq 58 1 67)
-ngpu=10          # GPU 数量
-per_gpu=1       # 每个 GPU 上允许的最大并行进程数
+values2=$(seq 10 10 10)
+values3=$(seq 10 10 10)
+values4=$(seq 10 10 10)
+values5=$(seq 0 1 67)
+ngpu=2          # GPU 数量
+per_gpu=4       # 每个 GPU 上允许的最大并行进程数
 count=0
 
 # 任务管理

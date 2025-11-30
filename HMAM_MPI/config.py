@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 current_file = Path(__file__)
 parent_dir = current_file.parent.parent
-data_dir = parent_dir / 'HMAM' / 'out_160mm2'
+data_dir = parent_dir / 'HMAM' / 'out_180mm2'
 net_dir = os.path.join(data_dir, 'net.yaml')
 
 vis_content = ['']

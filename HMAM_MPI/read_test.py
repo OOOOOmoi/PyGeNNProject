@@ -3,7 +3,7 @@ from config import get_cc_delay, get_NN, get_SN, get_weight, remove_dash_from_in
 import numpy as np
 from time import perf_counter
 import pandas as pd
-
+import scipy.io as sio
 area_list = net["area_list"]
 area_list = [s.replace("-", "") for s in area_list]
 layer_list = net["layer_list"]
@@ -92,6 +92,9 @@ I_prop_series.to_pickle(out_path)
 print("Saved I_prop_series to", out_path)
 NN = remove_dash_from_index_columns(NN)
 NN_area = NN.groupby(level=0).sum()
+NN_area_dict = NN_area.to_dict()
+NN_area_ordered = {area: NN_area_dict.get(area, 0) for area in area_list}
+sio.savemat("NN_area.mat", {"NN_area": NN_area_ordered})
 SN, SN_ext = get_SN()
 SN = remove_dash_from_index_columns(SN)
 weight, weight_sd = get_weight()

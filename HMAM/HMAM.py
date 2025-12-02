@@ -81,9 +81,9 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    area_list = net_config['area_list'][0:4]
+    # area_list = net_config['area_list'][0:4]
     # area_list = [net_config['area_list'][1], net_config['area_list'][9], net_config['area_list'][12]]
-    # area_list = net_config['area_list'][int(args.AreaIdx)]
+    area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
         area_list = [area_list]
     area_list = [s.replace("-", "") for s in area_list]
@@ -216,8 +216,8 @@ if __name__ == "__main__":
                     srcName = src_area+src_pop+layer_map[src_layer]
                     synName = srcName + "_to_" + tarName
                     synNum = SN.loc[tar, src]
-                    wAve = weight.loc[tar, src] /1000
-                    wSd = wAve / 10 /1000
+                    wAve = weight.loc[tar, src] /1
+                    wSd = wAve / 10 /1
                     if src_area == tar_area:
                         if src_pop == 'E':
                             meanDelay = net_config['delay_e']

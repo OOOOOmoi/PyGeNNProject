@@ -111,6 +111,7 @@ dual_exp_pop.max_dendritic_delay_timesteps = 15
 duration = 1000.0
 model.build()
 model.load(num_recording_timesteps = int(round(duration / model.dt)))
+print(pre.params["TauM"])
 out_post_history=[]
 V_pre=[]
 V_post=[]

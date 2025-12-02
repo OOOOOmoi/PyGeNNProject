@@ -21,8 +21,8 @@ values2=$(seq 10 10 10)
 values3=$(seq 10 10 10)
 values4=$(seq 10 10 10)
 values5=$(seq 0 1 67)
-ngpu=2          # GPU 数量
-per_gpu=4       # 每个 GPU 上允许的最大并行进程数
+ngpu=10          # GPU 数量
+per_gpu=2       # 每个 GPU 上允许的最大并行进程数
 count=0
 
 # 任务管理

@@ -175,7 +175,7 @@ if __name__ == "__main__":
                             ext_weight = weight_ext.loc[(area, layer, pop)] / 1
                             K = SN_ext.loc[(area, layer, pop)] / popNum
                             # rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight) * 1
-                            rate = rate_ext.loc[(area, layer, pop)] * 1
+                            rate = rate_ext.loc[(area, layer, pop)] * 5
                             # rate = 10*K
                             poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                             model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
@@ -216,8 +216,8 @@ if __name__ == "__main__":
                     srcName = src_area+src_pop+layer_map[src_layer]
                     synName = srcName + "_to_" + tarName
                     synNum = SN.loc[tar, src]
-                    wAve = weight.loc[tar, src] /1
-                    wSd = wAve / 10 /1
+                    wAve = weight.loc[tar, src] / 1000
+                    wSd = wAve / 10 / 1000
                     if src_area == tar_area:
                         if src_pop == 'E':
                             meanDelay = net_config['delay_e']

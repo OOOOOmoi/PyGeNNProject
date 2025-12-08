@@ -91,7 +91,10 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
             times = times[mask]
             ids = ids[mask]
             total_neurons = NeuronNumber[area][pop]
-            selected_neurons = np.random.choice(total_neurons, neurons_per_group, replace=False)
+            if total_neurons<neurons_per_group:
+                selected_neurons = np.random.choice(total_neurons, total_neurons, replace=False)
+            else:
+                selected_neurons = np.random.choice(total_neurons, neurons_per_group, replace=False)
             
             # 筛选当前 selected 神经元的放电
             mask = np.isin(ids, selected_neurons)

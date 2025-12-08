@@ -20,7 +20,7 @@ from connectom import connectom
 from record import record_spike, save_spike, record_inSyn, save_inSyn
 from expLIF import expLIF_model
 DT_MS=0.1
-NUM_THREADS_PER_SPIKE=8
+NUM_THREADS_PER_SPIKE=1
 current_dir = os.path.dirname(__file__)
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     
     suffix = generate_unique_suffix()
     struct=get_struct()
-    connectom(suffix, SynapsesNumber, SynapsesWeightMean, NeuronNumber, struct)
+    # connectom(suffix, SynapsesNumber, SynapsesWeightMean, NeuronNumber, struct)
     if "expLIF" in args:
         neuronParam = collection_params['expLIF_dict']
         params = {
@@ -185,33 +185,34 @@ if __name__ == "__main__":
             else:
                 params["Ioffset"] = input[pop] / 1000.0
             pop_size = NeuronNumber[area][pop]
-            if "expLIF" in args:
-                neuron_pop = model.add_neuron_population(popName, pop_size, expLIF_model, params, lif_init)
-            else:
-                neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", params, lif_init)
-            if args.stim and has_key_path(stim_info, area, pop):
-                s=stim_info[area][pop]
-                # if args.scale_stim:
-                #     s += float(args.scale_stim)
-                model.add_current_source(pop + '_pulse',
-                    trigger_pulse_model, neuron_pop,
-                    {   "start_time":args.stim_start,
-                        "end_time":args.stim_end,
-                        "magnitude": s/1000.0},
-            )
+            if pop_size > 0:
+                if "expLIF" in args:
+                    neuron_pop = model.add_neuron_population(popName, pop_size, expLIF_model, params, lif_init)
+                else:
+                    neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", params, lif_init)
+                if args.stim and has_key_path(stim_info, area, pop):
+                    s=stim_info[area][pop]
+                    # if args.scale_stim:
+                    #     s += float(args.scale_stim)
+                    model.add_current_source(area + pop + '_pulse',
+                        trigger_pulse_model, neuron_pop,
+                        {   "start_time":args.stim_start,
+                            "end_time":args.stim_end,
+                            "magnitude": s/1000.0},
+                )
 
-            if args.poisson:
-                ext_weight = SynapsesWeightMean[area][pop]['external']['external']
-                rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 100
-                rate = rate_ext[pop]
-                poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
-                model.add_current_source(pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
-            # Enable spike recording
-            neuron_pop.spike_recording_enabled = True
+                if args.poisson:
+                    ext_weight = SynapsesWeightMean[area][pop]['external']['external']
+                    rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 1000
+                    # rate = rate_ext[pop]/100
+                    poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
+                    model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
+                # Enable spike recording
+                neuron_pop.spike_recording_enabled = True
 
-            # print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (popName, pop_size, input[pop]/1000.0))
-            total_neurons += pop_size
-            neuron_populations[area][pop] = neuron_pop
+                # print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (popName, pop_size, input[pop]/1000.0))
+                total_neurons += pop_size
+                neuron_populations[area][pop] = neuron_pop
 
     if "CUT" not in args:
         total_synapses = 0
@@ -314,8 +315,10 @@ if __name__ == "__main__":
     # Merge data
     if args.save_spike:
         save_spike(spike_data)
-
-    visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+    for area, area_dict in spike_data.items():
+        spike_data_temp = {}
+        spike_data_temp[area] = area_dict
+        visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
                 group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
 
     if args.inSyn:

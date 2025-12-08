@@ -1,6 +1,6 @@
 import numpy as np
 import pygenn
-from pygenn import (GeNNModel, VarLocation, init_postsynaptic,
+from pygenn import (GeNNModel, VarLocation, init_postsynaptic, create_custom_update_model, VarAccessMode,
                     init_sparse_connectivity, init_weight_update, init_var)
 import matplotlib.pyplot as plt
 
@@ -54,6 +54,17 @@ if __name__ == "__main__":
     model.timing_enabled = True
     model.default_var_location = VarLocation.HOST_DEVICE
     model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
+
+    custom_update_model = create_custom_update_model(
+        "UpdateV",
+        update_code=
+        """
+
+        """,
+        var_refs=[("V", "scalar", VarAccessMode.Read_Write)],
+
+    )
+
     explif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": single_neuron_dict['t_ref']}
     explif_params = {
         "C": single_neuron_dict['C_m'] / 1000,  # Convert pF to nF

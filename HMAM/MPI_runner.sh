@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 清理旧文件
-find /home/yangjinhao/PyGeNNProject/HMAM/output -name "*.png" -type f -delete
+find /home/yangjinhao/PyGeNN/HMAM/output -name "*.png" -type f -delete
 
 TARGET_DIR="./HMAM_CODE"
 if [ -d "$TARGET_DIR" ]; then

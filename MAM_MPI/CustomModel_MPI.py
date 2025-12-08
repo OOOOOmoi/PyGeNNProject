@@ -31,7 +31,7 @@ MAX_SHARED_BINS = 1024
 current_dir = os.path.dirname(__file__)
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 buffer_size = 1
-duration = 1000
+duration = 200
 duration_timesteps = duration / DT_MS
 stim_start = 400
 stim_end = 800
@@ -56,7 +56,7 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, al
             for src_area in all_area[0:area_num]:
                 for src_pop in pop_list:
                     conn_num = SN[tar_area][tar_pop][src_area][src_pop]
-                    w = weight[tar_area][tar_pop][src_area][src_pop] / 1000
+                    w = weight[tar_area][tar_pop][src_area][src_pop] / 1000 * 0
                     if conn_num == 0 or NN[tar_area][tar_pop] == 0 or NN[src_area][src_pop] == 0 or src_area == tar_area:
                         continue  # 无连接则跳过
                     prob = conn_num / NN[src_area][src_pop] / NN[tar_area][tar_pop]
@@ -300,8 +300,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
                 "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
                 "TauRefrac": neuronParam['t_ref']}
-    exc_exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 2})
-    inh_exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 5})
+    exc_exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 0.5})
+    inh_exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 0.5})
     lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": params['TauRefrac']}
     input=collection_params['connection_params']['input']
     stim_info=collection_params['stim']
@@ -487,7 +487,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
 
             # 3) 拉取神经元变量并更新膜电位（尽量减少拷贝）
             t10 = perf_counter()
-            array_V, _ = get_neu_vars_array(neuron_populations, spike_count_buffer)
+            # array_V, _ = get_neu_vars_array(neuron_populations, spike_count_buffer)
             model.step_time()
             t11 = perf_counter()
 
@@ -510,7 +510,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                         pop_size = neu_pop.num_neurons
                         array_V_tmp = neu_pop.vars["V"].current_view.copy()
                         array_tref_tmp = neu_pop.vars["RefracTime"].current_view.copy()
-                        dv = (IR[offset : offset + pop_size] - array_V[offset : offset + pop_size] + neu_pop.params["Vrest"].value) * model.dt / neu_pop.params["TauM"].value
+                        dv = IR[offset : offset + pop_size] * model.dt / neu_pop.params["TauM"].value
                         dv[array_tref_tmp <= 0] = 0.0
                         array_V_tmp += dv
                         neu_pop.vars["V"].current_view[:] = array_V_tmp

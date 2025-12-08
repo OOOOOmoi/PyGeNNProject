@@ -162,6 +162,7 @@ def getWeightMap_full_type(structure, args):
     Cm = collection_params['single_neuron_dict']['Cm']
     gL = collection_params['single_neuron_dict']['gL']
     connection_params=collection_params['connection_params']
+    beta_norm = connection_params['beta_norm']
     PSC_over_PSP_ = nested_dict()
     for type_, value_ in Cm.items():
         C_m = Cm[type_]
@@ -187,6 +188,14 @@ def getWeightMap_full_type(structure, args):
                     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * -1
                 if srcPop[0] == "V":
                     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * -1
+                # if tarPop =='S4' and srcPop[0] == 'E':
+                #         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= beta_norm[tarPop]
+                # if tarPop =='S5' and srcPop[0] == 'E':
+                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= beta_norm[tarPop]
+                if tarPop =='S4' and srcPop == tarPop:
+                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 9
+                if tarPop =='S5' and srcPop == tarPop:
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 10
                 # if tarPop == "H1" and srcPop[0] != "E":
                 #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 0.5
                 SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] = abs(SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop]) * connection_params['PSC_rel_sd_normal']

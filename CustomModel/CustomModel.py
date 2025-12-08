@@ -31,12 +31,13 @@ def prepare(args):
     SynapsesNumber=ParamOfAll["synapses"]
     NeuronNumber=ParamOfAll["neuron_numbers"]
     Dist=ParamOfAll["distances"]
-
+    area_list=ParamOfAll["area_list"]
+    pop_list=ParamOfAll["population_list"]
     model_structure = get_struct()
     # SynapsesWeightMean, SynapsesWeightSd = getWeightMap(model_structure, args)
     SynapsesWeightMean, SynapsesWeightSd = getWeightMap_full_type(model_structure, args)
     delayMap = getDelayMap(model_structure, Dist)
-    return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap
+    return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, area_list, pop_list
 
 def get_parser():
     parser = ArgumentParser()
@@ -73,15 +74,17 @@ def parse_all_args():
     args_dict.update(extra_args)
     return Namespace(**args_dict)
 
-def getModelName(args):
+def getModelName(args, area_list):
     model_name = f"{args.duration/1000.0:.1f}s"
-    model_content = collection_params['model_content']
-    struct= get_struct()
-    for area in struct.keys():
+    # model_content = collection_params['model_content']
+    # struct= get_struct()
+    # for area in struct.keys():
+    #     model_name += f"_{area}"
+    #     if len(struct[area]) != 17:
+    #         for layer in model_content[area]:
+    #             model_name += f"_{layer}"
+    for area in area_list:
         model_name += f"_{area}"
-        if len(struct[area]) != 17:
-            for layer in model_content[area]:
-                model_name += f"_{layer}"
     if args.stim:
         model_name += f"_stim"
         model_name += f"_start{args.stim_start/1000:.1f}s"
@@ -101,7 +104,13 @@ def getModelName(args):
 
 if __name__ == "__main__":
     args = parse_all_args()
-    model_name = getModelName(args)
+    NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, all_area, pop_list = prepare(args)
+    area_list = all_area[int(args.AreaIdx)]
+    # area_list = all_area[0:4]
+    if isinstance(area_list, str):
+        area_list = [area_list]
+    
+    model_name = getModelName(args, area_list)
     with open("output/last_model_name.txt", "w") as f:
         f.write(model_name)
     rand_str = ''
@@ -127,8 +136,6 @@ if __name__ == "__main__":
         }
         """
     )
-    NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap = prepare(args)
-    
     suffix = generate_unique_suffix()
     struct=get_struct()
     # connectom(suffix, SynapsesNumber, SynapsesWeightMean, NeuronNumber, struct)
@@ -159,8 +166,8 @@ if __name__ == "__main__":
     Vrest = collection_params['single_neuron_dict']['Vrest']
     Vth = collection_params['single_neuron_dict']['Vth']
     rate_ext = collection_params['single_neuron_dict']['rate_ext']
-    for area, PopList in struct.items():
-        for pop in PopList:
+    for area in area_list:
+        for pop in pop_list:
             popName = area+pop
             params["C"] = Cm[pop] / 1000.0
             params["TauM"] = Cm[pop] / gL[pop]
@@ -202,9 +209,11 @@ if __name__ == "__main__":
                 )
 
                 if args.poisson:
-                    ext_weight = SynapsesWeightMean[area][pop]['external']['external']
+                    ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1
                     rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 1000
                     # rate = rate_ext[pop]/100
+                    # if pop[0] == "S":
+                    #     rate *= 0
                     poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                     model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
                 # Enable spike recording
@@ -217,45 +226,44 @@ if __name__ == "__main__":
     if "CUT" not in args:
         total_synapses = 0
         synapse_populations = nested_dict()
-        for areaTar, tarList in struct.items():
-            for areaSrc, srcList in struct.items():
-                for popTar, popSrc in product(tarList,srcList):
-                    wAve = SynapsesWeightMean[areaTar][popTar][areaSrc][popSrc]/1000.0
-                    wSd = SynapsesWeightSd[areaTar][popTar][areaSrc][popSrc]/1000.0
-                    synNum = SynapsesNumber[areaTar][popTar][areaSrc][popSrc]
-                    tarName = areaTar+popTar
-                    srcName = areaSrc+popSrc
-                    synName = srcName+"2"+tarName
-                    meanDelay=delayMap[areaTar][popTar][areaSrc][popSrc]['ave']
-                    delay_sd=delayMap[areaTar][popTar][areaSrc][popSrc]['sd']
-                    max_d=delayMap[areaTar][popTar][areaSrc][popSrc]['max']
-                    if(synNum>0):
-                        connect_params = {"num": synNum}
-                        # Build distribution for delay parameters
-                        d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
-                        total_synapses += synNum
-                        # Build unique synapse name
-                        matrix_type = "SPARSE" if args.SPARSE else "PROCEDURAL"
-                        if popSrc.startswith("E"):
-                            w_dist = {"mean": wAve, "sd": wSd, "min": 0.0, "max": float(np.finfo(np.float32).max)}
-                        else:
-                            w_dist = {"mean": wAve, "sd": wSd, "min": float(-np.finfo(np.float32).max), "max": 0.0}
-                        
-                        static_synapse_init = init_weight_update("StaticPulseDendriticDelay", {},
-                                                            {"g": init_var("NormalClipped", w_dist),
-                                                            "d": init_var("NormalClippedDelay", d_dist)})
-                        syn_pop = model.add_synapse_population(synName, matrix_type,
-                        neuron_populations[areaSrc][popSrc], neuron_populations[areaTar][popTar],
-                        static_synapse_init, exp_curr_init,
-                        init_sparse_connectivity("FixedNumberTotalWithReplacement", connect_params))
-
-                        # Set max dendritic delay and span type
-                        syn_pop.max_dendritic_delay_timesteps = int(round(max_d / DT_MS))
-                        if matrix_type=="PROCEDURAL":
-                            syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
-                        synapse_populations[areaTar][popTar][areaSrc][popSrc] = syn_pop
+        for areaTar, areaSrc in product(area_list, area_list):
+            for popTar, popSrc in product(pop_list, pop_list):
+                wAve = SynapsesWeightMean[areaTar][popTar][areaSrc][popSrc]/1000.0
+                wSd = SynapsesWeightSd[areaTar][popTar][areaSrc][popSrc]/1000.0
+                synNum = SynapsesNumber[areaTar][popTar][areaSrc][popSrc]
+                tarName = areaTar+popTar
+                srcName = areaSrc+popSrc
+                synName = srcName+"2"+tarName
+                meanDelay=delayMap[areaTar][popTar][areaSrc][popSrc]['ave']
+                delay_sd=delayMap[areaTar][popTar][areaSrc][popSrc]['sd']
+                max_d=delayMap[areaTar][popTar][areaSrc][popSrc]['max']
+                if(synNum>0):
+                    connect_params = {"num": synNum}
+                    # Build distribution for delay parameters
+                    d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
+                    total_synapses += synNum
+                    # Build unique synapse name
+                    matrix_type = "SPARSE" if args.SPARSE else "PROCEDURAL"
+                    if popSrc.startswith("E"):
+                        w_dist = {"mean": wAve, "sd": wSd, "min": 0.0, "max": float(np.finfo(np.float32).max)}
                     else:
-                        synapse_populations[areaTar][popTar][areaSrc][popSrc] = None
+                        w_dist = {"mean": wAve, "sd": wSd, "min": float(-np.finfo(np.float32).max), "max": 0.0}
+                    
+                    static_synapse_init = init_weight_update("StaticPulseDendriticDelay", {},
+                                                        {"g": init_var("NormalClipped", w_dist),
+                                                        "d": init_var("NormalClippedDelay", d_dist)})
+                    syn_pop = model.add_synapse_population(synName, matrix_type,
+                            neuron_populations[areaSrc][popSrc], neuron_populations[areaTar][popTar],
+                            static_synapse_init, exp_curr_init,
+                            init_sparse_connectivity("FixedNumberTotalWithReplacement", connect_params))
+
+                    # Set max dendritic delay and span type
+                    syn_pop.max_dendritic_delay_timesteps = int(round(max_d / DT_MS))
+                    if matrix_type=="PROCEDURAL":
+                        syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
+                    synapse_populations[areaTar][popTar][areaSrc][popSrc] = syn_pop
+                else:
+                    synapse_populations[areaTar][popTar][areaSrc][popSrc] = None
         print("Total neurons=%u, total synapses=%u" % (total_neurons, total_synapses))
 
     print("Building Model")
@@ -295,7 +303,7 @@ if __name__ == "__main__":
                 model.pull_recording_buffers_from_device()
                 record_spike(neuron_populations, spike_data)
         if args.inSyn:
-            record_inSyn(out_post_history, record_I, synapse_populations, PopList)
+            record_inSyn(out_post_history, record_I, synapse_populations, pop_list)
         if (model.timestep % ten_percent_timestep) == 0:
             flag += 1
             print("%u%%" % (flag * 10))

@@ -91,7 +91,10 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
             times = times[mask]
             ids = ids[mask]
             total_neurons = NeuronNumber[area][pop]
-            selected_neurons = np.random.choice(total_neurons, neurons_per_group, replace=False)
+            if total_neurons <= neurons_per_group:
+                selected_neurons = np.arange(total_neurons)
+            else:
+                selected_neurons = np.random.choice(total_neurons, neurons_per_group, replace=False)
             
             # 筛选当前 selected 神经元的放电
             mask = np.isin(ids, selected_neurons)
@@ -142,8 +145,8 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
                                     area=area, layer=None, pop=pop)
             avg_rates.append(avg_rate)
             y_ticks.append(current_y_offset + neurons_per_group // 2)
-            y_labels.append(pop+"_"+str(input[pop]))
-            group_labels.append(pop+"_"+str(input[pop]))
+            y_labels.append(pop)
+            group_labels.append(pop)
             current_y_offset += neurons_per_group + group_spacing
         if 'layer-psd' in vis_content or 'layer-rate' in vis_content:
             for layer, layer_data in layer_spikes_dict.items():

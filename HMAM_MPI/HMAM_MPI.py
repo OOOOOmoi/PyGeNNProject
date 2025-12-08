@@ -568,7 +568,7 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
 
             # 3) 拉取神经元变量并更新膜电位（尽量减少拷贝）
             t10 = perf_counter()
-            array_V, _ = get_neu_vars_array(neuron_populations, spike_count_buffer)
+            # array_V, _ = get_neu_vars_array(neuron_populations, spike_count_buffer)
             model.step_time()
             t11 = perf_counter()
 
@@ -612,7 +612,7 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
                         pop_size = neu_pop.num_neurons
                         array_V_tmp = neu_pop.vars["V"].current_view.copy()
                         array_tref_tmp = neu_pop.vars["RefracTime"].current_view.copy()
-                        dv = (IR[offset : offset + pop_size] - array_V[offset : offset + pop_size] + neu_pop.params["Vrest"].value) * model.dt / neu_pop.params["TauM"].value
+                        dv = IR[offset : offset + pop_size] * model.dt / neu_pop.params["TauM"].value
                         dv[array_tref_tmp <= 0] = 0.0
                         array_V_tmp += dv
                         neu_pop.vars["V"].current_view[:] = array_V_tmp

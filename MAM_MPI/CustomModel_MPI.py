@@ -606,10 +606,13 @@ if __name__ == "__main__":
     NN, SN, weight, _, delayMap, area_list, pop_list = prepare()
     NeuronNumber = defaultdict(dict)
     for area in area_list:
+        area_num = 0
         for pop in pop_list:
             if has_key_path(NN, area, pop):
                 popNum = NN[area][pop]
+                area_num += popNum
                 NeuronNumber[area][pop] = popNum
+        NeuronNumber[area]['total'] = area_num
 
     to_master_queues = []
     from_master_queues = []
@@ -707,5 +710,6 @@ if __name__ == "__main__":
     for area, area_dict in final_spike_data.items():
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
+        save_spike(spike_data_temp)
         visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
                 group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)

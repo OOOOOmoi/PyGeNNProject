@@ -53,7 +53,7 @@ import math
 import multiprocessing as mp
 NUM_THREADS_PER_SPIKE = 1
 MAX_SHARED_BINS = 1024
-duration = 100
+duration = 1000
 DT_MS = 0.1
 duration_timesteps = int(round(duration / DT_MS))
 ten_percent_timestep = duration_timesteps // 10
@@ -326,6 +326,133 @@ def fast_update_inSyn_gpu(
                 post = int32(u * group_neu_count)
                 cuda.atomic.add(inSyn_buffer, start_id + post, weight)
 
+def fast_update_inSyn_cupy(
+    spike_array_gpu,      # cupy.int32[:], length = n_src
+    cum_src_gpu,          # cupy.int32[:], length = n_groups  (cumsum of src_pop_num_array)
+    tar_neu_num_gpu,      # cupy.int32[:], length = n_groups
+    prob_gpu,             # cupy.float32[:], length = n_src
+    weight_gpu,           # cupy.float32[:], length = n_src
+    inSyn_gpu,            # cupy.float32[:], length = total_target_neurons (will be updated in-place)
+    rng_state=None,       # not used, but kept for API compatibility
+    poisson_threshold=2048
+):
+    """
+    GPU-side implementation using cupy vectorized RNG.
+    This will modify `inSyn_gpu` in-place.
+    NOTE: This function loops over source indices on the host (Python) level,
+    but all heavy work (random draws / permutation / index updates) stays on device.
+    This tradeoff is acceptable when n_src is moderate (e.g. thousands).
+    """
+    # move small control arrays to host only if needed (but keep device arrays for ops)
+    n_src = int(spike_array_gpu.size)
+    # we will read some arrays to host for indexing decisions (cheap)
+    spike_host = spike_array_gpu.get()  # small-ish: length n_src
+    cum_src_host = cum_src_gpu.get()
+    tar_neu_host = tar_neu_num_gpu.get()
+    # we will use cupy ops for heavy random draws and permute
+    for sc_idx in range(n_src):
+        sc = int(spike_host[sc_idx])
+        if sc <= 0:
+            continue
+
+        # find group index: searchsorted on cum_src_host
+        # target is sc_idx+1 as in your numba code
+        target = sc_idx + 1
+        # binary search (numpy-style)
+        group_idx = int(cp.searchsorted(cum_src_gpu, target).get())  # using cupy searchsorted then get index -> small cost
+
+        if group_idx >= len(tar_neu_host):
+            continue
+        group_neu_count = int(tar_neu_host[group_idx])
+        if group_neu_count <= 0:
+            continue
+
+        # start id (sum of previous tar_neu)
+        start_id = int(tar_neu_host[:group_idx].sum()) if group_idx > 0 else 0
+
+        prob = float(prob_gpu[sc_idx].get())
+        weight = float(weight_gpu[sc_idx].get())
+
+        # total trials (sc repeats)
+        n_trials = sc * group_neu_count
+
+        # sample k_total: if n_trials small => binomial; else use poisson approx
+        if n_trials < poisson_threshold:
+            # cupy supports binomial with vector args; do a single scalar draw via cupy.random.binomial
+            k_total = int(cp.random.binomial(n_trials, prob))
+        else:
+            lam = float(n_trials) * prob
+            # poisson sometimes unstable for very large lambda; clip if necessary
+            k_total = int(cp.random.poisson(lam))
+
+        if k_total <= 0:
+            continue
+
+        # clip k_total to at most group_neu_count * something? your original caps at group_neu_count only in distribution logic
+        if k_total >= group_neu_count:
+            q = k_total // group_neu_count
+            r = k_total - q * group_neu_count
+            if q > 0:
+                # add q * weight to all neurons in group -> vector add slice
+                # inSyn_gpu[start_id : start_id+group_neu_count] += q * weight
+                cp.add(inSyn_gpu[start_id:start_id+group_neu_count],
+                       cp.float32(q * weight),
+                       out=inSyn_gpu[start_id:start_id+group_neu_count])
+
+            if r > 0:
+                # choose r unique indices uniformly from [0, group_neu_count)
+                # use permutation and take first r
+                perm = cp.random.permutation(group_neu_count)[:r]
+                # atomic add: cupy advanced indexing will produce a gather+scatter; to avoid duplicate index issues,
+                # we use bincount with weights for accumulating per-position increments then add slice once.
+                # build per-group increments:
+                if r == 1:
+                    # simpler fast path
+                    idx = int(perm[0])
+                    cp.add(inSyn_gpu[start_id + idx], cp.float32(weight), out=inSyn_gpu[start_id + idx])
+                else:
+                    # create counts per position (mostly 0/1)
+                    counts = cp.bincount(perm, minlength=group_neu_count).astype(cp.float32)
+                    if counts.size > 0:
+                        # multiply by weight and add to slice
+                        cp.add(inSyn_gpu[start_id:start_id+group_neu_count],
+                               counts * cp.float32(weight),
+                               out=inSyn_gpu[start_id:start_id+group_neu_count])
+        else:
+            # k_total < group_neu_count: choose k_total unique posts
+            if k_total == 1:
+                # draw one index
+                post = int(cp.random.randint(0, group_neu_count))
+                cp.add(inSyn_gpu[start_id + post], cp.float32(weight), out=inSyn_gpu[start_id + post])
+            else:
+                perm = cp.random.permutation(group_neu_count)[:k_total]
+                counts = cp.bincount(perm, minlength=group_neu_count).astype(cp.float32)
+                cp.add(inSyn_gpu[start_id:start_id+group_neu_count],
+                       counts * cp.float32(weight),
+                       out=inSyn_gpu[start_id:start_id+group_neu_count])
+
+    # nothing to return; inSyn_gpu updated in-place
+    return None
+
+def decay_cupy(inSyn_gpu, R_gpu, dt):
+    """
+    Implement decay + IR computation with cupy vector ops.
+    original:
+        inSyn[i] *= exp(-dt/4)
+        IR[i] = inSyn[i] * R[i]
+        inSyn[i] *= exp(-dt/2)
+    We implement exactly the same ordering.
+    """
+    # equivalent vector ops on GPU
+    a = cp.exp(-dt / 4.0, dtype=cp.float32)
+    b = cp.exp(-dt / 2.0, dtype=cp.float32)
+    # do operations
+    inSyn_gpu *= a
+    IR_gpu = inSyn_gpu * R_gpu   # new device array
+    inSyn_gpu *= b
+    return IR_gpu  # return IR on device
+
+
 @cuda.jit
 def decay_gpu(inSyn, R, IR, dt):
     i = cuda.grid(1)
@@ -350,6 +477,228 @@ def get_neu_vars_array(neuron_populations, spike_count_buffer, merge=True):
         array_V = np.concatenate(array_V) if array_V else np.array([])
         array_tref = np.concatenate(array_tref) if array_tref else np.array([])
     return array_V, array_tref
+
+import cupy as cp
+import numpy as np
+
+# ===============================================================
+#  CUDA C RawKernel : fast_update_inSyn_gpu
+# ===============================================================
+kernel_code = r'''
+extern "C" {
+
+#define MAX_THREADS 1024
+#define MAX_SHARED_BINS 1024
+
+// rotate left for 64-bit
+__device__ inline unsigned long long rotl(const unsigned long long x, int k) {
+    return (x << k) | (x >> (64 - k));
+}
+
+// xoroshiro128+ step: state is two uint64s stored at states[2*idx], states[2*idx+1]
+// returns new random uint64 and updates state in-place
+__device__ inline unsigned long long xoroshiro128p_next(unsigned long long *states, int idx) {
+    unsigned long long s0 = states[2*idx];
+    unsigned long long s1 = states[2*idx + 1];
+    unsigned long long result = s0 + s1;
+
+    s1 ^= s0;
+    states[2*idx] = rotl(s0, 55) ^ s1 ^ (s1 << 14);
+    states[2*idx + 1] = rotl(s1, 36);
+    return result;
+}
+
+// uniform float32 in [0,1)
+__device__ inline float xoroshiro128p_uniform_float32(unsigned long long *states, int idx) {
+    unsigned long long r = xoroshiro128p_next(states, idx);
+    const unsigned long long UINT23_MASK = (1ULL << 23) - 1ULL;
+    unsigned int x = (unsigned int)((r >> 41) & UINT23_MASK);
+    return (float)x / (float)(1u << 23);
+}
+
+
+// The kernel
+__global__ void fast_update_inSyn_gpu(
+    const int *spike_array,         // int32[n_src]
+    const int *cum_src,             // int32[n_group]
+    const int *tar_neu_num_array,   // int32[n_group]
+    const float *prob_array,        // float32[n_src]
+    const float *weight_array,      // float32[n_src]
+    float *inSyn_buffer,            // float32[sum_tar_neu]
+    unsigned long long *rng_states, // uint64[2 * n_rng_states]
+    const int n_groups              // cum_src length
+) {
+    const int sc_idx = blockIdx.x;
+    const int tid = threadIdx.x;
+    const int n_threads = blockDim.x;
+
+    if (sc_idx >= gridDim.x) return;
+
+    int sc = spike_array[sc_idx];
+    if (sc <= 0) return;
+
+    // ===== Binary search: find group_idx such that cum_src[group_idx] >= sc_idx+1 =====
+    int target = sc_idx + 1;
+    int left = 0, right = n_groups - 1;
+    int group_idx = 0;
+    while (left <= right) {
+        int mid = (left + right) >> 1;
+        if (target <= cum_src[mid]) {
+            group_idx = mid;
+            right = mid - 1;
+        } else {
+            left = mid + 1;
+        }
+    }
+
+    // ===== compute start_id =====
+    int start_id = 0;
+    for (int i = 0; i < group_idx; ++i)
+        start_id += tar_neu_num_array[i];
+
+    int group_neu_count = tar_neu_num_array[group_idx];
+    float prob = prob_array[sc_idx];
+    float weight = weight_array[sc_idx];
+
+    if (group_neu_count <= 0) return;
+
+    int n_trials = sc * group_neu_count;
+
+    // shared
+    __shared__ int shared_hits[MAX_THREADS];
+    __shared__ int total_hits_shared;
+
+    int total_hits = 0;
+
+    // ===== Bernoulli (exact) when trials < 2048 =====
+    if (n_trials < 2048) {
+        int trials_per_thread = (n_trials + n_threads - 1) / n_threads;
+        int base = tid * trials_per_thread;
+
+        int local_hits = 0;
+        int rng_base = sc_idx * n_threads;
+
+        for (int i = 0; i < trials_per_thread; ++i) {
+            int t = base + i;
+            if (t < n_trials) {
+                int ridx = rng_base + (t % n_threads);
+                float u = xoroshiro128p_uniform_float32(rng_states, ridx);
+                if (u < prob) local_hits += 1;
+            }
+        }
+
+        shared_hits[tid] = local_hits;
+        __syncthreads();
+
+        int stride = n_threads >> 1;
+        while (stride > 0) {
+            if (tid < stride)
+                shared_hits[tid] += shared_hits[tid + stride];
+            __syncthreads();
+            stride >>= 1;
+        }
+
+        if (tid == 0) total_hits_shared = shared_hits[0];
+        __syncthreads();
+        total_hits = total_hits_shared;
+    }
+    else {
+        // ===== Poisson approx =====
+        if (tid == 0) {
+            float lam = (float)sc * (float)group_neu_count * prob;
+            float L = expf(-lam);
+            float p_acc = 1.0f;
+            int k = 0;
+
+            int ridx = sc_idx * n_threads;  // 采用 tid=0 的 rng 基
+            while (p_acc > L) {
+                ++k;
+                float u = xoroshiro128p_uniform_float32(rng_states, ridx);
+                p_acc *= u;
+            }
+            total_hits_shared = k - 1;
+        }
+        __syncthreads();
+        total_hits = total_hits_shared;
+    }
+
+    if (total_hits <= 0) return;
+
+    // ===== small group: use shared histogram =====
+    if (group_neu_count <= MAX_SHARED_BINS) {
+        __shared__ float shared_bins[MAX_SHARED_BINS];
+
+        for (int i = tid; i < group_neu_count; i += n_threads)
+            shared_bins[i] = 0.0f;
+        __syncthreads();
+
+        int hits_per_thread = (total_hits + n_threads - 1) / n_threads;
+        int base = tid * hits_per_thread;
+        int rng_base = sc_idx * n_threads;
+
+        for (int i = 0; i < hits_per_thread; ++i) {
+            int h = base + i;
+            if (h < total_hits) {
+                int ridx = rng_base + (i % n_threads);
+                float u = xoroshiro128p_uniform_float32(rng_states, ridx);
+                int post = (int)(u * (float)group_neu_count);
+                if (post >= group_neu_count) post = group_neu_count - 1;
+                atomicAdd(&shared_bins[post], weight);
+            }
+        }
+
+        __syncthreads();
+
+        for (int i = tid; i < group_neu_count; i += n_threads) {
+            float val = shared_bins[i];
+            if (val != 0.f)
+                atomicAdd(&inSyn_buffer[start_id + i], val);
+        }
+    }
+    else {
+        // ===== large group: atomic to global directly =====
+        int hits_per_thread = (total_hits + n_threads - 1) / n_threads;
+        int base = tid * hits_per_thread;
+        int rng_base = sc_idx * n_threads;
+
+        for (int i = 0; i < hits_per_thread; ++i) {
+            int h = base + i;
+            if (h < total_hits) {
+                int ridx = rng_base + (i % n_threads);
+                float u = xoroshiro128p_uniform_float32(rng_states, ridx);
+                int post = (int)(u * (float)group_neu_count);
+                if (post >= group_neu_count) post = group_neu_count - 1;
+                atomicAdd(&inSyn_buffer[start_id + post], weight);
+            }
+        }
+    }
+}
+
+} // extern "C"
+'''
+
+
+# ===============================================================
+#  RNG 初始化 (splitmix64)
+# ===============================================================
+def init_xoroshiro_states(n_states, seed=1234567):
+    """生成 xoroshiro128+ 的 state 数组，形状为 (2*n_states,) uint64"""
+    def splitmix64(x):
+        x = (x + 0x9e3779b97f4a7c15) & 0xFFFFFFFFFFFFFFFF
+        z = x
+        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9 & 0xFFFFFFFFFFFFFFFF
+        z = (z ^ (z >> 27)) * 0x94d049bb133111eb & 0xFFFFFFFFFFFFFFFF
+        return z ^ (z >> 31), x
+
+    h = np.empty((2 * n_states,), dtype=np.uint64)
+    x = seed
+    for i in range(n_states):
+        v1, x = splitmix64(x)
+        v2, x = splitmix64(x)
+        h[2*i] = v1
+        h[2*i+1] = v2
+    return cp.asarray(h)
+
 
 def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weight_ext, area_num,
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
@@ -389,7 +738,7 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
                                     "TauRefrac": neuronParam['t_ref']}
                         neuron_pop = model.add_neuron_population(popName, popNum, "LIF", params, lif_init)
                         ext_weight = weight_ext.loc[(area, layer, pop)]
-                        rate = rate_ext.loc[(area, layer, pop)] * 1
+                        rate = rate_ext.loc[(area, layer, pop)] * 10
                         # rate = 10*K
                         poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                         model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
@@ -469,9 +818,9 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
     cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
     # inSyn buffer
     inSyn_buffer = np.zeros(len(R_array), dtype=np.float32)
-    cuda.select_device(gpu_id)
 
-    # 需要在循环外初始化一次
+    # numba.cuda 相关准备——————————————————————————————————————————————————————————————————————————————————————
+    cuda.select_device(gpu_id)
     d_cum_src   = cuda.to_device(cum_src.astype(np.int32))
     d_tar_num   = cuda.to_device(tar_neu_num_array.astype(np.int32))
     d_prob      = cuda.to_device(prob_array.astype(np.float32))
@@ -479,16 +828,35 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
     d_inSyn     = cuda.to_device(inSyn_buffer.astype(np.float32))
     d_R         = cuda.to_device(R_array.astype(np.float32))
     d_IR = cuda.device_array_like(d_inSyn)  # 用作中间 IR 存储
-    N_inSyn = len(inSyn_buffer)  # 先前已知
-    IR = np.empty_like(inSyn_buffer, dtype=np.float32)
-    threads_per_block = 128
-    blocks_per_grid = (N_inSyn + threads_per_block - 1) // threads_per_block
 
-    # 获得 GPU 上的 spike_array 存储，以及更新inSyn的 kernel 配置
+    # 更新inSyn的 kernel 配置
     d_spike_array = cuda.device_array(len(spike_count_buffer), dtype=np.int32)
     threads = 128  # 或 256，视 GPU 而定；128 是比较保守的起点
     blocks = len(spike_count_buffer)  # 一个 block per sc
     rng_states = create_xoroshiro128p_states(blocks * threads, seed=1234)
+
+    # decay的kernel配置
+    N_inSyn = len(inSyn_buffer)  # 先前已知
+    IR = np.empty_like(inSyn_buffer, dtype=np.float32)
+    threads_per_block = 128
+    blocks_per_grid = (N_inSyn + threads_per_block - 1) // threads_per_block
+    # ————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+    # cupy 相关准备———————————————————————————————————————————————————————————————————————————————————————
+    # cp.cuda.Device(gpu_id).use()
+    # d_cum_src = cp.array(cum_src.astype(np.int32))
+    # d_tar_num = cp.array(tar_neu_num_array.astype(np.int32))
+    # d_prob = cp.array(prob_array.astype(np.float32))
+    # d_weight = cp.array(weight_array.astype(np.float32))
+    # d_inSyn = cp.array(inSyn_buffer.astype(np.float32))   # will be updated in-place
+    # d_R = cp.array(R_array.astype(np.float32))
+    
+    # # 初始化 RNG states for cupy kernel
+    # block_size = 256
+    # n_blocks = len(inSyn_buffer)
+    # n_states = n_blocks * block_size
+    # rng_states = init_xoroshiro_states(n_states, seed=202503)
+    # fast_update = cp.RawKernel(kernel_code, 'fast_update_inSyn_gpu')
 
     current_step = 0
     local_spike_history = []  # 每步 append 完整 spike_data_temp，用于仿真结束后一次性发回主进程
@@ -546,25 +914,38 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
             cuda.synchronize()
             t4 = perf_counter()
 
-            # 原始 numpy 实现（慢）
-            # for sc_idx, sc in enumerate(spike_array):
-            #     if sc == 0:
-            #         continue
-            #     group_idx = int(np.searchsorted(cum_src, sc_idx + 1))
-            #     start_id = int(np.sum(tar_neu_num_array[:group_idx])) if group_idx > 0 else 0
-            #     group_neu_count = int(tar_neu_num_array[group_idx]) if group_idx < len(tar_neu_num_array) else 0
-            #     prob = prob_array[sc_idx]
-            #     while sc >= 0:
-            #         # 按二项分布从 group_neu_count 个目标神经元中抽取命中数 k，再随机选择 k 个目标神经元并累加权重
-            #         k = np.random.binomial(group_neu_count, prob)
-            #         if k > 0:
-            #             if k >= group_neu_count:
-            #                 post_idxs = np.arange(start_id, start_id + group_neu_count, dtype=int)
-            #             else:
-            #                 choices = np.random.choice(group_neu_count, size=k, replace=False)
-            #                 post_idxs = start_id + choices.astype(int)
-            #             inSyn_buffer[post_idxs] += weight_array[sc_idx]
-            #         sc -= 1
+            # 2) 更新 inSyn (cupy 加速版)
+            # t3 = perf_counter()
+            # d_spike_array = cp.array(spike_array.astype(np.int32))
+            # fast_update_inSyn_cupy(
+            #     d_spike_array,
+            #     d_cum_src,
+            #     d_tar_num,
+            #     d_prob,
+            #     d_weight,
+            #     d_inSyn
+            # )
+            # cp.cuda.runtime.deviceSynchronize()
+            # t4 = perf_counter()
+
+            # 2) 更新 inSyn (cupy RawKernel 版)
+            # t3 = perf_counter()
+            # d_spike_array = cp.array(spike_array.astype(np.int32))
+            # args = (
+            #     d_spike_array,
+            #     d_cum_src,
+            #     d_tar_num,
+            #     d_prob,
+            #     d_weight,
+            #     d_inSyn,
+            #     rng_states,
+            #     np.int32(len(src_pop_num_array))
+            # )
+            # fast_update(
+            #     (n_blocks,), (block_size,),
+            #     args
+            # )
+            # t4 = perf_counter()
 
             # 3) 拉取神经元变量并更新膜电位（尽量减少拷贝）
             t10 = perf_counter()
@@ -577,11 +958,16 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
             decay_gpu[blocks_per_grid, threads_per_block](d_inSyn, d_R, d_IR, model.dt)
             cuda.synchronize()
             d_IR.copy_to_host(IR)
-            # d_inSyn.copy_to_host(inSyn_buffer)
+            d_inSyn.copy_to_host(inSyn_buffer)
             # inSyn_buffer *= np.exp(-model.dt / 4)
             # IR = inSyn_buffer * R_array
             # IR = np.asarray(IR)
             # inSyn_buffer *= np.exp(-model.dt / 2)
+
+            # cupy 版 decay + IR
+            # d_IR = decay_cupy(d_inSyn, d_R, model.dt)
+            # cp.cuda.runtime.deviceSynchronize()
+            # IR = cp.asnumpy(d_IR)
             t6 = perf_counter()
 
             # 5) 将 IR 应用到各 population（注意 slice 的 offset 必须与 build_spike_buffer 中的 group 划分一致）
@@ -738,7 +1124,7 @@ if __name__ == '__main__':
 
     num_gpus = 10
     procs_per_gpu = 1
-    num_workers = num_gpus * procs_per_gpu
+    num_workers = 10
     split_idx = split_indices(num_workers,num_workers)
     # split_idx = [[2], [3], [5], [13]]
     to_master_queues = []

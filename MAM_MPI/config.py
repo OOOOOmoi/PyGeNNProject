@@ -1,4 +1,4 @@
-vis_content = []
+vis_content = ['area-psd']
 model_content = {
     "V1": [],
     "V1": [],

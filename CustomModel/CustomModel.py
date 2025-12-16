@@ -116,7 +116,7 @@ if __name__ == "__main__":
     rand_str = ''
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
     os.makedirs("GenCODE/", exist_ok=True)
-    model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
+    model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=9-args.device)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
     model.default_narrow_sparse_ind_enabled = True
@@ -210,10 +210,12 @@ if __name__ == "__main__":
 
                 if args.poisson:
                     ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1
-                    rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 1000
+                    rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 3000
                     # rate = rate_ext[pop]/100
-                    # if pop[0] == "S":
-                    #     rate *= 0
+                    if pop == "E23":
+                        rate *= 1.2
+                    # if pop == "V4":
+                    #     rate *= 0.1
                     poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                     model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
                 # Enable spike recording
@@ -239,10 +241,8 @@ if __name__ == "__main__":
                 max_d=delayMap[areaTar][popTar][areaSrc][popSrc]['max']
                 if(synNum>0):
                     connect_params = {"num": synNum}
-                    # Build distribution for delay parameters
                     d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
                     total_synapses += synNum
-                    # Build unique synapse name
                     matrix_type = "SPARSE" if args.SPARSE else "PROCEDURAL"
                     if popSrc.startswith("E"):
                         w_dist = {"mean": wAve, "sd": wSd, "min": 0.0, "max": float(np.finfo(np.float32).max)}

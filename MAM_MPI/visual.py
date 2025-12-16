@@ -64,7 +64,7 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
                     except Exception as e:
                         print(f"Error loading {csv_path}: {e}")
 
-    fig_raster, axs_raster = plt.subplots(len(spike_data), 1, figsize=(12, 5 * len(spike_data)), sharex=True)
+    fig_raster, axs_raster = plt.subplots(len(spike_data), 1, figsize=(10, 5 * len(spike_data)), sharex=True)
     if len(spike_data) == 1:
         axs_raster = [axs_raster]
 
@@ -145,8 +145,8 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
                                     area=area, layer=None, pop=pop)
             avg_rates.append(avg_rate)
             y_ticks.append(current_y_offset + neurons_per_group // 2)
-            y_labels.append(pop+"_"+str(input[pop]))
-            group_labels.append(pop+"_"+str(input[pop]))
+            y_labels.append(pop)
+            group_labels.append(pop)
             current_y_offset += neurons_per_group + group_spacing
         if 'layer-psd' in vis_content or 'layer-rate' in vis_content:
             for layer, layer_data in layer_spikes_dict.items():
@@ -179,17 +179,17 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
 
         ax_raster.set_yticks(y_ticks)
         ax_raster.set_yticklabels(y_labels)
-        ax_raster.set_ylabel(f"{area}")
+        ax_raster.set_ylabel(f"{area}", fontsize=16, fontweight='bold')
         if area_idx == len(spike_data) - 1:
-            ax_raster.set_xlabel("Time (ms)")
+            ax_raster.set_xlabel("Time (ms)", fontsize=16, fontweight='bold')
         if model_name:
-            ax_raster.set_title(f"{area} Raster - {model_name}")
+            ax_raster.set_title(f"{area} Raster - {model_name}", fontsize=16, fontweight='bold')
         else:
-            ax_raster.set_title(f"{area} Raster")
+            ax_raster.set_title(f"{area} Raster", fontsize=16, fontweight='bold')
 
         ax_hist = axs_hist[area_idx]
         bars = ax_hist.bar(group_labels, avg_rates, color=[color_map.get(pop[0], "gray") for pop in group_labels])
-        ax_hist.set_ylabel("Avg Firing Rate (Hz)")
+        ax_hist.set_ylabel("Avg Firing Rate (Hz)", fontsize=16, fontweight='bold')
 
         # 添加数值标签在每个柱子上方
         for bar, rate in zip(bars, avg_rates):
@@ -197,9 +197,9 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
             ax_hist.text(bar.get_x() + bar.get_width() / 2, height + 0.2, f"{rate:.1f}",
                         ha='center', va='bottom', fontsize=8)
         if model_name:
-            ax_hist.set_title(f"{area} Rate - {model_name}")
+            ax_hist.set_title(f"{area} Rate - {model_name}", fontsize=16, fontweight='bold')
         else:
-            ax_hist.set_title(f"{area} Average Firing Rate")
+            ax_hist.set_title(f"{area} Average Firing Rate", fontsize=16, fontweight='bold')
         ax_hist.set_xticks(range(len(group_labels)))
         ax_hist.set_xticklabels(group_labels, rotation=45)
 

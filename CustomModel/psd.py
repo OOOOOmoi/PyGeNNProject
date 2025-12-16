@@ -59,16 +59,16 @@ def plot_psd(rate_smoothed, time_bins, model_name, sample_bin, suffix,
     if layer == None and pop != None:
         fig_psd.suptitle(f"{area} - {pop} Psd - {model_name}" if model_name else f"{area} - {pop} Psd")
         fig_psd.tight_layout(rect=[0, 0, 1, 0.95])
-        os.makedirs(f"psd/{area}/pop", exist_ok=True)
+        os.makedirs(f"output/psd/{area}/pop", exist_ok=True)
         fig_psd.savefig(f"psd/{area}/pop/{pop}_{suffix}.png")
     elif layer != None and pop == None:
         fig_psd.suptitle(f"{area} - Layer {layer} Psd - {model_name}" if model_name else f"{area} - Layer {layer} Psd")
         fig_psd.tight_layout(rect=[0, 0, 1, 0.95])
-        os.makedirs(f"psd/{area}/layer", exist_ok=True)
+        os.makedirs(f"output/psd/{area}/layer", exist_ok=True)
         fig_psd.savefig(f"psd/{area}/layer/{layer}_{suffix}.png")
     elif layer == None and pop == None:
         fig_psd.suptitle(f"{area} Psd - {model_name}" if model_name else f"{area} Psd")
         fig_psd.tight_layout(rect=[0, 0, 1, 0.95])
-        os.makedirs(f"psd/{area}/", exist_ok=True)
-        fig_psd.savefig(f"psd/{area}/psd_{suffix}.png")
+        os.makedirs(f"output/psd", exist_ok=True)
+        fig_psd.savefig(f"output/psd/psd_{area}.png")
     plt.close(fig_psd)

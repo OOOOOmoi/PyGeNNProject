@@ -24,7 +24,7 @@ for ((i=0; i<NUM_PROCESSES; i++)); do
 
     echo "Launching process $i on GPU $GPU with --free-scale $SCALE"
 
-    python "$SCRIPT" --duration "$DURATION" --device "$GPU" --expLIF --free-scale-input "$SCALE" &
+    python "$SCRIPT" --duration "$DURATION" --device "$GPU" --free-scale-input "$SCALE" &
 done
 
 echo "所有进程已启动。"

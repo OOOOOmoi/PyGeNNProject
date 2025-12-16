@@ -64,7 +64,7 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
                     except Exception as e:
                         print(f"Error loading {csv_path}: {e}")
 
-    fig_raster, axs_raster = plt.subplots(len(spike_data), 1, figsize=(12, 5 * len(spike_data)), sharex=True)
+    fig_raster, axs_raster = plt.subplots(len(spike_data), 1, figsize=(10, 5 * len(spike_data)), sharex=True)
     if len(spike_data) == 1:
         axs_raster = [axs_raster]
 
@@ -179,13 +179,13 @@ def visualize(suffix, spike_data, duration=1000, drop=200, neurons_per_group=200
 
         ax_raster.set_yticks(y_ticks)
         ax_raster.set_yticklabels(y_labels)
-        ax_raster.set_ylabel(f"{area}")
+        ax_raster.set_ylabel(f"{area}", fontsize=16, fontweight='bold')
         if area_idx == len(spike_data) - 1:
-            ax_raster.set_xlabel("Time (ms)")
+            ax_raster.set_xlabel("Time (ms)", fontsize=16, fontweight='bold')
         if model_name:
-            ax_raster.set_title(f"{area} Raster - {model_name}")
+            ax_raster.set_title(f"{area} Raster - {model_name}", fontsize=16, fontweight='bold')
         else:
-            ax_raster.set_title(f"{area} Raster")
+            ax_raster.set_title(f"{area} Raster", fontsize=16, fontweight='bold')
 
         ax_hist = axs_hist[area_idx]
         bars = ax_hist.bar(group_labels, avg_rates, color=[color_map.get(pop[0], "gray") for pop in group_labels])

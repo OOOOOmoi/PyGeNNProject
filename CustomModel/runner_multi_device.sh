@@ -21,8 +21,8 @@ values2=$(seq 10 10 10)
 values3=$(seq 10 10 10)
 values4=$(seq 10 10 10)
 values5=$(seq 0 1 31)
-ngpu=10          # GPU 数量
-per_gpu=1       # 每个 GPU 上允许的最大并行进程数
+ngpu=2          # GPU 数量
+per_gpu=3       # 每个 GPU 上允许的最大并行进程数
 count=0
 
 # 任务管理
@@ -34,11 +34,10 @@ for w3 in $values3; do
 for w4 in $values4; do
 for w5 in $values5; do
   gpu_id=$((count % ngpu))
+  gpu_id=$gpu_id
   echo "Launching task $count on GPU $gpu_id"
 
   ARGS="--duration 1000"
-  ARGS="$ARGS --buffer"
-  ARGS="$ARGS --buffer-size 10000"
   ARGS="$ARGS --SPARSE"
   # ARGS="$ARGS --wEE $w1 --wEI $w2 --wIE $w3 --wII $w4"
   ARGS="$ARGS --AreaIdx $w5"

@@ -191,10 +191,12 @@ def getWeightMap_full_type(structure):
                 #         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= beta_norm[tarPop]
                 # if tarPop =='S5' and srcPop[0] == 'E':
                 #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= beta_norm[tarPop]
-                # if tarPop =='S4' and srcPop == tarPop:
-                #         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 10
-                # if tarPop =='S5' and srcPop == tarPop:
-                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 10
+                if tarPop =='S23' and srcPop == tarPop and tarArea == srcArea and tarArea != 'V1':
+                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 5
+                if tarPop =='S4' and srcPop == tarPop and tarArea ==srcArea:
+                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 1000
+                if tarPop =='S5' and srcPop == tarPop and tarArea ==srcArea:
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 800
                 SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] = abs(SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop]) * connection_params['PSC_rel_sd_normal']
                 # if tarPop == 'E23' and srcPop == 'E4':
                 #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['PSP_e_23_4'] / 4

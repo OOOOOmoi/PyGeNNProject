@@ -29,7 +29,7 @@ from config import expLIF_dict, input, layer_map, vis_content, \
     get_NN, get_SN, get_weight, get_weight_ext, externalRates, get_cc_delay, \
     getModelName, remove_dash_from_index_columns, get_ext_rate, net
 from visual import visualize
-from record import record_spike
+from record import record_spike, save_spike
 import numpy as np
 from argparse import ArgumentParser, Namespace
 import string
@@ -53,7 +53,7 @@ import math
 import multiprocessing as mp
 NUM_THREADS_PER_SPIKE = 1
 MAX_SHARED_BINS = 1024
-duration = 1000
+duration = 500
 DT_MS = 0.1
 duration_timesteps = int(round(duration / DT_MS))
 ten_percent_timestep = duration_timesteps // 10
@@ -738,7 +738,7 @@ def Part(worker_id, gpu_id,  area_list, NN, rate_ext, SN, weight, delay_cc, weig
                                     "TauRefrac": neuronParam['t_ref']}
                         neuron_pop = model.add_neuron_population(popName, popNum, "LIF", params, lif_init)
                         ext_weight = weight_ext.loc[(area, layer, pop)]
-                        rate = rate_ext.loc[(area, layer, pop)] * 10
+                        rate = rate_ext.loc[(area, layer, pop)] * 5
                         # rate = 10*K
                         poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                         model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
@@ -1113,7 +1113,9 @@ if __name__ == '__main__':
     weight_ext = remove_dash_from_index_columns(weight_ext)
     weight_ext_sd = remove_dash_from_index_columns(weight_ext_sd)
     idx = pd.IndexSlice
-
+    NN_area = NN.groupby(level=0).sum()
+    NN_area_dict = NN_area.to_dict()
+    NN_area_ordered = {area: NN_area_dict.get(area, 0) for area in area_list}
     NeuronNumber = defaultdict(dict)
     for area in area_list:
         for layer in layer_list:
@@ -1122,9 +1124,15 @@ if __name__ == '__main__':
                     popNum = NN.loc[(area, layer, pop)]
                     NeuronNumber[area][pop+layer_map[layer]] = popNum
 
+    # for area in area_list:
+    #     factor = 1.00001e09/68/NN_area_ordered[area]
+    #     for layer in layer_list:
+    #         for pop in pop_list:
+    #             if (area, layer, pop) in NN.index:
+    #                 NN.loc[(area, layer, pop)] = int(NN.loc[(area, layer, pop)] * factor)
     num_gpus = 10
     procs_per_gpu = 1
-    num_workers = 10
+    num_workers = 8
     split_idx = split_indices(num_workers,num_workers)
     # split_idx = [[2], [3], [5], [13]]
     to_master_queues = []
@@ -1140,10 +1148,10 @@ if __name__ == '__main__':
         to_master_queues.append(to_master)
         from_master_queues.append(from_master)
         gpu_id = i % num_gpus
-        assigned_areas = [area_list[j-1] for j in split_idx[i]]
+        assigned_areas = [area_list[j-1+60] for j in split_idx[i]]
         p = Process(target=Part,
                     args=(i,
-                          gpu_id,
+                          9-gpu_id,
                           assigned_areas,
                           NN, rate_ext, SN, weight, delay_cc, weight_ext, num_workers,
                           to_master, from_master, done_queue, final_queue))
@@ -1222,5 +1230,6 @@ if __name__ == '__main__':
     for area, area_dict in final_spike_data.items():
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
+        save_spike(spike_data_temp)
         visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
                 model_name="HMAM", NeuronNumber=NeuronNumber, drop=0)

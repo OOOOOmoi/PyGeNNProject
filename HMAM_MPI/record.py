@@ -10,6 +10,7 @@ def record_spike(neuron_population, spike_data):
 
 def save_spike(spike_data):
     for area, pop_dict in spike_data.items():
+        os.makedirs("output/spike", exist_ok=True)
         output_dir = f"output/spike/{area}"
         os.makedirs(output_dir, exist_ok=True)
 

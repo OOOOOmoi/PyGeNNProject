@@ -81,9 +81,9 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    # area_list = net_config['area_list'][0:4]
+    area_list = net_config['area_list'][60:-1]
     # area_list = [net_config['area_list'][1], net_config['area_list'][9], net_config['area_list'][12]]
-    area_list = net_config['area_list'][int(args.AreaIdx)]
+    # area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
         area_list = [area_list]
     area_list = [s.replace("-", "") for s in area_list]
@@ -175,7 +175,7 @@ if __name__ == "__main__":
                             ext_weight = weight_ext.loc[(area, layer, pop)] / 1
                             K = SN_ext.loc[(area, layer, pop)] / popNum
                             # rate = externalRates(neuronParam, net_config['eta_ext'], K, ext_weight) * 1
-                            rate = rate_ext.loc[(area, layer, pop)] * 5
+                            rate = rate_ext.loc[(area, layer, pop)] * 10
                             # rate = 10*K
                             poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                             model.add_current_source(popName + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
@@ -312,11 +312,11 @@ if __name__ == "__main__":
         model.pull_recording_buffers_from_device()
         record_spike(neuron_populations, spike_data)
     # Merge data
-    if args.save_spike:
-        save_spike(spike_data)
     for area, area_dict in spike_data.items():
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
+        if args.save_spike:
+            save_spike(spike_data_temp)
         visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
                 model_name="HMAM", NeuronNumber=NeuronNumber)
     # visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 

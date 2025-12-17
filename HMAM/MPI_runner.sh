@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 清理旧文件
-find /home/yangjinhao/PyGeNN/HMAM/output -name "*.png" -type f -delete
+find /home/yangjinhao/PyGenn/HMAM/output -name "*.png" -type f -delete
 
 TARGET_DIR="./HMAM_CODE"
 if [ -d "$TARGET_DIR" ]; then
@@ -22,7 +22,7 @@ values3=$(seq 10 10 10)
 values4=$(seq 10 10 10)
 values5=$(seq 0 1 67)
 ngpu=10          # GPU 数量
-per_gpu=2       # 每个 GPU 上允许的最大并行进程数
+per_gpu=1       # 每个 GPU 上允许的最大并行进程数
 count=0
 
 # 任务管理

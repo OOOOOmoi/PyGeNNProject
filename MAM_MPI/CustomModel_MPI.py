@@ -20,7 +20,6 @@ from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWe
 from visual import visualize, generate_unique_suffix
 from connectom import connectom
 from record import record_spike, save_spike, record_inSyn, save_inSyn
-from expLIF import expLIF_model
 from multiprocessing import Process, Queue, Pipe
 from numba import njit, prange, cuda, int32, float32
 from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float32
@@ -35,12 +34,34 @@ duration = 200
 duration_timesteps = duration / DT_MS
 stim_start = 400
 stim_end = 800
+
+# ===============================================================
+# 进程区域索引生成函数，生成 1 ~ num_areas 的列表，然后均匀划分为 num_workers 份
+# ===============================================================
 def split_indices(num_areas, num_workkers):
     indices = list(range(1, num_areas + 1))   # 生成 1 ~ num_areas
     chunk_size = (num_areas + num_workkers - 1) // num_workkers  # 向上取整
     return [indices[i*chunk_size:(i+1)*chunk_size] for i in range(num_workkers) if indices[i*chunk_size:(i+1)*chunk_size]]
 
-
+# ===============================================================
+# 生成缓冲区
+# 返回值：
+# buffer: dict of ((tar_area, tar_pop), (src_area, src_pop)) -> np.ndarray of shape (delay_steps,)，用于存储延迟突触输入，缓冲区的主体
+# weight_array: np.ndarray of shape (n_src,), 存储每个突触群的权重均值，n_src 为所有源突触群的总数
+# prob_array: np.ndarray of shape (n_src,), 存储每个突触群的连接概率
+# src_pop_num_array: np.ndarray of shape (n_groups,), 存储每个目标群接收的源突触群数量
+# tar_neu_num_array: np.ndarray of shape (n_groups,), 存储每个目标群的神经元数量
+# R_array: np.ndarray of shape (total_target_neurons,), 存储每个目标神经元的膜阻值 Rm，用于后续的 IR 计算
+# 所用参数：
+# area_num: 当前进程负责的区域数量
+# NN: 神经元数量表
+# SN: 突触连接数表
+# delay_cc: 区域间延迟表
+# weight: 突触权重表
+# dt: 仿真时间步长
+# tar_area_list: 当前进程负责的区域列表
+# net: 网络配置字典
+# ===============================================================
 def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, all_area, pop_list, gL):
     buffer = {}
     weight_array = []
@@ -72,7 +93,6 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, al
                 src_pop_num_array.append(src_pop_num)
                 tar_neu_num_array.append(n_neu)
                 R_array.extend([Rm] * n_neu)
-        # convert collected lists to numpy arrays for efficient numeric ops
         weight_array = np.array(weight_array, dtype=np.float32)
         prob_array = np.array(prob_array, dtype=np.float32)
         src_pop_num_array = np.array(src_pop_num_array, dtype=np.int32)
@@ -80,7 +100,19 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, al
         R_array = np.array(R_array, dtype=np.float32)
     return buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array
 
-
+# ===============================================================
+# 快速更新 inSyn 缓冲区函数（GPU 版，使用 numba cuda）
+# 输入参数（注意这里所用参数均在设备端）：
+# spike_array: np.ndarray of shape (n_src,), 存储每个源突触群在当前时间步的 spike count
+# cum_src: np.ndarray of shape (n_groups,), 存储源突触群数量的累积和，用于定位源突触群所属的目标群体
+# tar_neu_num_array: np.ndarray of shape (n_groups,), 存储每个目标群的神经元数量
+# prob_array: np.ndarray of shape (n_src,), 存储每个源突触群的连接概率
+# weight_array: np.ndarray of shape (n_src,), 存储每个源突触群的权重均值
+# inSyn_buffer: np.ndarray of shape (total_target_neurons,), 存储所有目标神经元的 inSyn 缓冲区，将被更新
+# rng_states: 预先初始化的 XOROSHIRO128+ 随机数生成器状态数组
+# 核函数说明：
+# 该核函数每个 block 处理一个源突触群（sc_idx），每个（或者多个）线程负责生成部分随机数并更新 inSyn_buffer
+# ===============================================================
 @cuda.jit
 def fast_update_inSyn_gpu(
     spike_array,           # int32[n_src]
@@ -92,6 +124,9 @@ def fast_update_inSyn_gpu(
     rng_states             # xoroshiro states
 ):
     # blockIdx.x 对应 sc_idx（一个 block 处理一个 sc）
+    # tid 对应线程块内线程索引
+    # n_threads 对应线程块大小
+    # gid 对应全局线程索引
     sc_idx = cuda.blockIdx.x
     tid = cuda.threadIdx.x
     n_threads = cuda.blockDim.x
@@ -103,7 +138,7 @@ def fast_update_inSyn_gpu(
     if sc <= 0:
         return
 
-    # binary search (searchsorted behavior)
+    # 二分查找：找到 group_idx 使得 cum_src[group_idx] >= sc_idx + 1
     target = sc_idx + 1
     left = 0
     right = cum_src.size - 1
@@ -116,7 +151,7 @@ def fast_update_inSyn_gpu(
         else:
             left = mid + 1
 
-    # compute start_id (sum tar_neu_num_array[:group_idx])
+    # 计算start_id
     start_id = int32(0)
     for i in range(group_idx):
         start_id += int32(tar_neu_num_array[i])
@@ -127,18 +162,25 @@ def fast_update_inSyn_gpu(
 
     if group_neu_count <= 0:
         return
-    
+    # 合并sc次binomial，相当于做sc * group_neu_count次二项分布实验，每次命中概率为 prob
+    # 在这里有个额外的含义，也就是一个block内所有线程共同完成 sc * group_neu_count 次实验
     n_trials = sc * group_neu_count
 
+    # 这里采用两种路径：
+    # 1. 如果 n_trials 较小（<2048），则用 严谨的 Bernoulli 累加（每个线程负责部分实验，最后 block 内归约）
+    # 2. 如果 n_trials 较大，则用 Poisson 近似（每个 block 只需一个线程生成总命中数）
     if n_trials < 2048:
         # 用 严谨 Bernoulli 累加（方案1）
         # 每线程分摊 trials
         trials_per_thread = (n_trials + n_threads - 1) // n_threads
+        # 计算每线程的起始实验索引
         base = tid * trials_per_thread
 
         local_hits = int32(0)
+        # 计算每个 block 的 rng 段起始索引
         rng_base = sc_idx * n_threads
 
+        # 每个线程负责 trials_per_thread 次实验
         for i in range(trials_per_thread):
             t = base + i
             if t < n_trials:
@@ -149,12 +191,14 @@ def fast_update_inSyn_gpu(
                 if u < prob:
                     local_hits += 1
 
-        # block 归约
-        shared_hits = cuda.shared.array(shape=1024, dtype=int32)  # threads <=1024
+        # block 归约，这里使用共享内存，block之间的共享内存是独立的
+        # 先把每个线程的 local_hits 写入 shared
+        # threads <=1024，所以可以直接静态分配
+        shared_hits = cuda.shared.array(shape=1024, dtype=int32)
         shared_hits[tid] = local_hits
         cuda.syncthreads()
 
-        # 并行 reduction
+        # 并行规约，一种常见的核函数写法，能够降低线程分化带来的影响
         stride = n_threads // 2
         while stride > 0:
             if tid < stride:
@@ -166,7 +210,9 @@ def fast_update_inSyn_gpu(
             total_hits = shared_hits[0]
     else:
         # 用 Poisson 近似（方案2）
+        # 只需要一个线程生成 total_hits，目前主流的模拟框架都采用的是这种方案
         if gid == 0:
+            # 计算 lambda
             lam = float32(sc * group_neu_count) * prob
 
             # Knuth 算法（GPU 版 Poisson）
@@ -184,8 +230,9 @@ def fast_update_inSyn_gpu(
             total_hits = k - 1
     if total_hits <= 0:
         return
-
-    # 如果 group_neu_count 很小，使用 shared local histogram，最后一次性写回全局
+    # 获取了总命中数量 total_hits 后，开始分配到各个 neuron 上
+    # 如果 group_neu_count 很小（<= MAX_SHARED_BINS），使用共享内存加速，最后一次性写回全局
+    # 不过一般用不上这个功能，这是为了后续扩展准备的
     if group_neu_count <= MAX_SHARED_BINS:
         # 定义 shared bins（静态大小）
         shared_bins = cuda.shared.array(shape=MAX_SHARED_BINS, dtype=float32)
@@ -203,10 +250,9 @@ def fast_update_inSyn_gpu(
         for i in range(hits_per_thread):
             h = base + i
             if h < total_hits:
-                # rng index use (rng_base + tid) to avoid identical sequence across threads
+                # 生成随机索引
                 u = xoroshiro128p_uniform_float32(rng_states, rng_base + (i % n_threads))
                 post = int32(u * group_neu_count)
-                # 增量写 shared
                 # 这里使用 shared 的 atomic（在 CUDA 中是快速的）
                 cuda.atomic.add(shared_bins, post, weight)
 
@@ -219,7 +265,7 @@ def fast_update_inSyn_gpu(
                 cuda.atomic.add(inSyn_buffer, start_id + i, val)
 
     else:
-        # group too large -> every thread generates hits and atomic to global
+        # 直接全局原子操作版本
         hits_per_thread = (total_hits + n_threads - 1) // n_threads
         base = tid * hits_per_thread
         rng_base = sc_idx * n_threads
@@ -230,6 +276,15 @@ def fast_update_inSyn_gpu(
                 post = int32(u * group_neu_count)
                 cuda.atomic.add(inSyn_buffer, start_id + post, weight)
 
+# ===============================================================
+# 衰减 inSyn 并计算 IR 的函数（Numba CUDA 版）
+# 输入参数：
+# inSyn: numba.cuda.device_array of shape (n_neurons,), 存储每个神经元的 inSyn 缓冲区
+# R: numba.cuda.device_array of shape (n_neurons,), 存储每个神经元的膜阻值 Rm
+# dt: 时间步长
+# 返回值：
+# IR: numba.cuda.device_array of shape (n_neurons,), 存储每个神经元的 IR 值，用于后续的膜电位更新
+# ===============================================================
 @cuda.jit
 def decay_gpu(inSyn, R, IR, dt):
     i = cuda.grid(1)
@@ -238,6 +293,16 @@ def decay_gpu(inSyn, R, IR, dt):
         IR[i] = inSyn[i] * R[i]
         inSyn[i] *= math.exp(-dt / 2)
 
+# ===============================================================
+# 获取神经元变量数组函数，主要是当前时刻的膜电位和不应期
+# 输入参数：
+# neuron_populations: dict of area -> population -> neuron_population 对象
+# spike_count_buffer: dict of ((tar_area, tar_pop), (src_area, src_pop)) -> np.ndarray of shape (delay_steps,)
+# merge: bool, 是否将各群体的数组合并为一个大数组返回
+# 返回值：
+# array_V: np.ndarray or list of np.ndarray, 存储膜电位 V 的数组
+# array_tref: np.ndarray or list of np.ndarray, 存储不应期 RefracTime 的数组
+# ===============================================================
 def get_neu_vars_array(neuron_populations, spike_count_buffer, merge=True):
     array_V = []
     array_tref = []
@@ -255,7 +320,9 @@ def get_neu_vars_array(neuron_populations, spike_count_buffer, merge=True):
         array_tref = np.concatenate(array_tref) if array_tref else np.array([])
     return array_V, array_tref
 
-
+# ===============================================================
+# 准备函数，加载参数文件并生成所需的各种映射
+# ===============================================================
 def prepare():
     DataPath=os.path.join(parent_dir, "custom_Data_Model_3396.json")
     with open(DataPath, 'r') as f:
@@ -271,20 +338,37 @@ def prepare():
     delayMap = getDelayMap(model_structure, Dist)
     return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, area_list, pop_list
 
-
-
+# ===============================================================
+# 子进程函数 Part，用于每个工作进程创建和运行神经网络模型
+# 输入参数：
+# worker_id: 工作进程 ID
+# gpu_id: 分配给该进程的 GPU ID
+# area_list: 该进程负责的脑区列表
+# NN: 神经元数量 DataFrame
+# rate_ext: 外部输入噪声强度 DataFrame
+# SN: 突触数量 DataFrame
+# weight: 突触权重 DataFrame
+# delay_cc: 皮层间延迟 DataFrame
+# weight_ext: 外部输入权重 DataFrame
+# area_num: 脑区数量
+# to_master: 进程间通信队列，发送数据到主进程
+# from_master: 进程间通信队列，从主进程接收数据
+# done_queue: 进程间通信队列，通知主进程任务完成
+# final_queue: 进程间通信队列，发送最终结果到主进程
+# ===============================================================
 def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, 
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
     model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
     if isinstance(area_list, str):
         area_list = [area_list]
-    model.dt = 0.1
-    model.fuse_postsynaptic_models = True
-    model.default_narrow_sparse_ind_enabled = True
-    model.timing_enabled = True
-    model.default_var_location = VarLocation.HOST_DEVICE
-    model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE
+    model.dt = 0.1                                                        # 设置时间步长为 0.1 ms
+    model.fuse_postsynaptic_models = True                                 # 开启后突触模型融合以提升性能
+    model.default_narrow_sparse_ind_enabled = True                        # 开启窄稀疏连接以节省内存
+    model.timing_enabled = True                                           # 开启时间测量以便性能分析
+    model.default_var_location = VarLocation.HOST_DEVICE                  # 设置变量默认位置为主机和设备双端
+    model.default_sparse_connectivity_location = VarLocation.HOST_DEVICE  # 设置稀疏连接默认位置为主机和设备双端
+    # 设置额外的刺激，为了后续分析模型所设计，目前没用到
     trigger_pulse_model = pygenn.create_current_source_model(
         "trigger_pulse",
         params=["start_time","end_time","magnitude"],  # 参数：噪声强度
@@ -316,6 +400,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     Vrest = collection_params['single_neuron_dict']['Vrest']
     Vth = collection_params['single_neuron_dict']['Vth']
     rate_ext = collection_params['single_neuron_dict']['rate_ext']
+    # 创建神经元群体
     for area in area_list:
         for pop in pop_list:
             popName = area+pop
@@ -342,7 +427,6 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 # rate = rate_ext[pop]/1000
                 poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                 model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
-                # Enable spike recording
                 neuron_pop.spike_recording_enabled = True
 
                 # print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (popName, pop_size, input[pop]/1000.0))
@@ -350,6 +434,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 neuron_populations[area][pop] = neuron_pop
     total_synapses = 0
     synapse_populations = nested_dict()
+    # 创建突触群体
     for areaTar, areaSrc in product(area_list, area_list):
         for popTar, popSrc in product(pop_list, pop_list):
             wAve = weight[areaTar][popTar][areaSrc][popSrc]/1000.0
@@ -363,10 +448,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             max_d=delayMap[areaTar][popTar][areaSrc][popSrc]['max']
             if(synNum>0):
                 connect_params = {"num": synNum}
-                # Build distribution for delay parameters
                 d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
                 total_synapses += synNum
-                # Build unique synapse name
                 matrix_type = "PROCEDURAL"
                 if popSrc.startswith("E"):
                     w_dist = {"mean": wAve, "sd": wSd, "min": 0.0, "max": float(np.finfo(np.float32).max)}
@@ -394,25 +477,24 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             else:
                 synapse_populations[areaTar][popTar][areaSrc][popSrc] = None
         print("Total neurons=%u, total synapses=%u" % (total_neurons, total_synapses))
-    
+    # 代码生成阶段
     print(f"Building worker {worker_id} of {total_neurons} neurons and {total_synapses} synapses on device {gpu_id}")
     model.build()
+    # 分配显存阶段
     print(f"Loading worker {worker_id} on device {gpu_id}")
     model.load(num_recording_timesteps=buffer_size)
-    print(f"Simulating worker {worker_id} on device {gpu_id}")
 
     print("Simulating")
-    # generate spike buffer
+    # 构建 spike_count_buffer 和 inSyn_buffer
     spike_count_buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array  = \
         build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list,
                            all_area=all_area, pop_list=pop_list, gL=gL)
 
     cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
-    # inSyn buffer
     inSyn_buffer = np.zeros(len(R_array), dtype=np.float32)
     cuda.select_device(gpu_id)
 
-    # 需要在循环外初始化一次
+    # numba.cuda 相关准备——————————————————————————————————————————————————————————————————————————————————————
     d_cum_src   = cuda.to_device(cum_src.astype(np.int32))
     d_tar_num   = cuda.to_device(tar_neu_num_array.astype(np.int32))
     d_prob      = cuda.to_device(prob_array.astype(np.float32))
@@ -430,6 +512,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     threads = 128  # 或 256，视 GPU 而定；128 是比较保守的起点
     blocks = len(spike_count_buffer)  # 一个 block per sc
     rng_states = create_xoroshiro128p_states(blocks * threads, seed=1234)
+    # numba.cuda 相关准备——————————————————————————————————————————————————————————————————————————————————————
 
     current_step = 0
     local_spike_history = []  # 每步 append 完整 spike_data_temp，用于仿真结束后一次性发回主进程
@@ -583,6 +666,13 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     final_msg = {"worker_id": worker_id, "final_spike_data": local_spike_history}
     final_queue.put(final_msg)
 
+# ===============================================================
+# 合并多个 worker 的 spike data 函数
+# 输入参数：
+# spike_data_blocks: list of spike_data dicts from multiple workers
+# 返回值：
+# merged spike_data dict
+# ===============================================================
 def merge_spike_data(spike_data_blocks):
     merged = {}
 
@@ -598,10 +688,13 @@ def merge_spike_data(spike_data_blocks):
                 merged[area][pop].extend(spikes)   # 把多个 worker 的数据拼接到一起
     return merged
 
+# ===============================================================
+# 主程序入口
+# ===============================================================
 if __name__ == "__main__":
-    num_gpus = 10
-    procs_per_gpu = 1
-    num_workers = 32
+    num_gpus = 10      # 使用的 GPU 数量
+    # procs_per_gpu = 1  # 每个 GPU 上的进程数
+    num_workers = 32   # 总进程数
     split_idx = split_indices(num_workers,num_workers)
     NN, SN, weight, _, delayMap, area_list, pop_list = prepare()
     NeuronNumber = defaultdict(dict)

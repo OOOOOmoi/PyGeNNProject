@@ -1,9 +1,6 @@
 import os
 import matplotlib.pyplot as plt
-
 import numpy as np
-import os
-import matplotlib.pyplot as plt
 
 def plot_firing_rate_curve(rate_smoothed, time_bins, suffix, model_name, 
                            area, layer=None, pop=None):

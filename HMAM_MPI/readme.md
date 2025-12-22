@@ -1,0 +1,7 @@
+GeNN+MPI主体代码文件为 HMAM_MPI.py
+使用的输入文件为out_*mm2文件夹中的内容，可以修改config中的文件名称模拟不同面积的皮层柱
+无命令行输入要求，可以通过调整main函数中num_worker与num_gpu的数量来使用不同数量显卡模拟不同数量的脑区
+文件输出保存在output/文件夹下
+
+HMAM_MPI_MM.py 为多机版本，需要配置好不同及其之间的通讯，运行runner_MM.sh即可运行
+针对不同的环境可能需要更改ip以及网卡名称

@@ -53,7 +53,7 @@ df.to_csv("worker_timestep_stats.csv", index=False, encoding="utf-8-sig")
 # =========================
 # 3. 指定要分析的 Worker
 # =========================
-worker_id = 0   # ✅ 这里改成你想看的 Worker ID
+worker_id = 25
 
 df_w = df[df["worker"] == worker_id]
 df_w = df_w[df_w["timestep"] >= 10]

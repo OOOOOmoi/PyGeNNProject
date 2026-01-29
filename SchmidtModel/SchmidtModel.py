@@ -16,7 +16,6 @@ from nested_dict import nested_dict
 from config import collection_params, vis_content, record_I
 from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type
 from visual import visualize, generate_unique_suffix
-from connectom import connectom
 from record import record_spike, save_spike, record_inSyn, save_inSyn
 from expLIF import expLIF_model
 import pynvml, csv
@@ -26,7 +25,7 @@ current_dir = os.path.dirname(__file__)
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 
 def prepare(args):
-    DataPath=os.path.join(parent_dir, "custom_Data_Model_3396.json")
+    DataPath=os.path.join(parent_dir, "default_Data_Model_.json")
     with open(DataPath, 'r') as f:
         ParamOfAll = json.load(f)
     SynapsesNumber=ParamOfAll["synapses"]
@@ -107,7 +106,7 @@ if __name__ == "__main__":
     args = parse_all_args()
     NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, all_area, pop_list = prepare(args)
     # area_list = all_area[int(args.AreaIdx)]
-    area_list = all_area[0:int(args.AreaNum)]
+    area_list = all_area[0:8]
     if isinstance(area_list, str):
         area_list = [area_list]
     
@@ -345,13 +344,13 @@ if __name__ == "__main__":
     # Merge data
     if args.save_spike:
         save_spike(spike_data)
-    # for area, area_dict in spike_data.items():
-    #     spike_data_temp = {}
-    #     spike_data_temp[area] = area_dict
-    #     # visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
-    #     #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
-    #     visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
-    #             model_name="HMAM", NeuronNumber=NeuronNumber)
+    for area, area_dict in spike_data.items():
+        spike_data_temp = {}
+        spike_data_temp[area] = area_dict
+        # visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+        #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+        visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
+                model_name="HMAM", NeuronNumber=NeuronNumber)
 
     if args.inSyn:
         save_inSyn(out_post_history)

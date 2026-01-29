@@ -81,7 +81,7 @@ if __name__ == "__main__":
     suffix = generate_unique_suffix()
     args = parse_all_args()
     # area_list = net_config['area_list']
-    area_list = net_config['area_list'][60:-1]
+    area_list = net_config['area_list'][0:34]
     # area_list = [net_config['area_list'][1], net_config['area_list'][9], net_config['area_list'][12]]
     # area_list = net_config['area_list'][int(args.AreaIdx)]
     if isinstance(area_list, str):
@@ -265,6 +265,7 @@ if __name__ == "__main__":
     build_start_time = perf_counter()
     model.build()
     build_end_time = perf_counter()
+    print("\tBuild:%f" % ((build_end_time - build_start_time) * 1000.0))
     
     duration=args.duration
     duration_timesteps = int(round(duration / DT_MS))

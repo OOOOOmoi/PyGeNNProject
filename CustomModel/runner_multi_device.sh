@@ -38,7 +38,7 @@ for w5 in $values5; do
   echo "Launching task $count on GPU $gpu_id"
 
   ARGS="--duration 1000"
-  ARGS="$ARGS --SPARSE"
+  # ARGS="$ARGS --SPARSE"
   # ARGS="$ARGS --wEE $w1 --wEI $w2 --wIE $w3 --wII $w4"
   ARGS="$ARGS --AreaIdx $w5"
   ARGS="$ARGS --device $gpu_id"

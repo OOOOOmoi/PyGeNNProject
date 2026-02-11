@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 from nested_dict import nested_dict
 from config import collection_params, vis_content, record_I
-from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type
+from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type, getInd
 from visual import visualize, generate_unique_suffix
 from connectom import connectom
 from record import record_spike, save_spike, record_inSyn, save_inSyn
@@ -336,7 +336,8 @@ def prepare():
     # SynapsesWeightMean, SynapsesWeightSd = getWeightMap(model_structure, args)
     SynapsesWeightMean, SynapsesWeightSd = getWeightMap_full_type(model_structure)
     delayMap = getDelayMap(model_structure, Dist)
-    return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, area_list, pop_list
+    Ind = getInd(SynapsesNumber, NeuronNumber)
+    return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, area_list, pop_list, Ind
 
 # ===============================================================
 # 子进程函数 Part，用于每个工作进程创建和运行神经网络模型
@@ -356,7 +357,7 @@ def prepare():
 # done_queue: 进程间通信队列，通知主进程任务完成
 # final_queue: 进程间通信队列，发送最终结果到主进程
 # ===============================================================
-def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, 
+def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, Ind,
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
     model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
@@ -400,6 +401,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     Vrest = collection_params['single_neuron_dict']['Vrest']
     Vth = collection_params['single_neuron_dict']['Vth']
     rate_ext = collection_params['single_neuron_dict']['rate_ext']
+    Ind_V1 = Ind['V1']
     # 创建神经元群体
     for area in area_list:
         for pop in pop_list:
@@ -436,9 +438,11 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     synapse_populations = nested_dict()
     # 创建突触群体
     for areaTar, areaSrc in product(area_list, area_list):
+        Ind_ = Ind[areaTar]
         for popTar, popSrc in product(pop_list, pop_list):
-            wAve = weight[areaTar][popTar][areaSrc][popSrc]/1000.0
-            wSd = weight[areaTar][popTar][areaSrc][popSrc]/1000.0/10
+            factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_V1[popTar][popSrc] > 0 else 1
+            wAve = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 * factor
+            wSd = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 / 10 * factor
             synNum = SN[areaTar][popTar][areaSrc][popSrc]
             tarName = areaTar+popTar
             srcName = areaSrc+popSrc
@@ -696,7 +700,7 @@ if __name__ == "__main__":
     # procs_per_gpu = 1  # 每个 GPU 上的进程数
     num_workers = 32   # 总进程数
     split_idx = split_indices(num_workers,num_workers)
-    NN, SN, weight, _, delayMap, area_list, pop_list = prepare()
+    NN, SN, weight, _, delayMap, area_list, pop_list, Ind = prepare()
     NeuronNumber = defaultdict(dict)
     for area in area_list:
         area_num = 0
@@ -725,7 +729,7 @@ if __name__ == "__main__":
                     args=(i,
                           gpu_id,
                           assigned_areas, area_list, pop_list,
-                          NN, SN, weight, delayMap, num_workers,
+                          NN, SN, weight, delayMap, num_workers, Ind,
                           to_master, from_master, done_queue, final_queue))
         p.start()
         processes.append(p)

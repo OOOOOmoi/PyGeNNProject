@@ -1,7 +1,7 @@
 import numpy as np
 from argparse import ArgumentParser, Namespace
 import pygenn
-from pygenn import (GeNNModel, VarLocation, init_postsynaptic,
+from pygenn import (GeNNModel, VarLocation, init_postsynaptic, 
                     init_sparse_connectivity, init_weight_update, init_var)
 from pygenn.cuda_backend import DeviceSelect
 from time import perf_counter
@@ -13,19 +13,26 @@ import string
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from nested_dict import nested_dict
-from config import collection_params, vis_content, record_I
-from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type
-from visual import visualize, generate_unique_suffix
+from config import collection_params
+from visual import visualize
 from record import record_spike, save_spike, record_inSyn, save_inSyn
-from expLIF import expLIF_model
 import pynvml, csv
 DT_MS=0.1
 NUM_THREADS_PER_SPIKE=1
 current_dir = os.path.dirname(__file__)
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 
-def prepare(args):
-    DataPath=os.path.join(parent_dir, "default_Data_Model_.json")
+def has_key_path(d, *keys):
+    for k in keys:
+        if isinstance(d, dict) and k in d:
+            d = d[k]
+        else:
+            return False
+    return True
+
+
+def prepare():
+    DataPath=os.path.join(current_dir, "default_Data_Model_.json")
     with open(DataPath, 'r') as f:
         ParamOfAll = json.load(f)
     SynapsesNumber=ParamOfAll["synapses"]
@@ -33,22 +40,43 @@ def prepare(args):
     Dist=ParamOfAll["distances"]
     area_list=ParamOfAll["area_list"]
     pop_list=ParamOfAll["population_list"]
-    model_structure = get_struct()
-    # SynapsesWeightMean, SynapsesWeightSd = getWeightMap(model_structure, args)
-    SynapsesWeightMean, SynapsesWeightSd = getWeightMap_full_type(model_structure, args)
-    delayMap = getDelayMap(model_structure, Dist)
-    return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, area_list, pop_list
+    SynapsesWeightMean=ParamOfAll["synapse_weights_mean"]
+    SynapsesWeightSd=ParamOfAll["synapse_weights_sd"]
+    structure=ParamOfAll["structure"]
+    def _convert_vals_to_int(obj):
+        if isinstance(obj, dict):
+            for k, v in list(obj.items()):
+                if isinstance(v, (dict, list)):
+                    _convert_vals_to_int(v)
+                elif isinstance(v, bool) or v is None:
+                    continue
+                else:
+                    try:
+                        obj[k] = int(float(v))
+                    except Exception:
+                        pass
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                if isinstance(v, (dict, list)):
+                    _convert_vals_to_int(v)
+                elif isinstance(v, bool) or v is None:
+                    continue
+                else:
+                    try:
+                        obj[i] = int(float(v))
+                    except Exception:
+                        pass
+
+    _convert_vals_to_int(NeuronNumber)
+    _convert_vals_to_int(SynapsesNumber)
+    return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, Dist, area_list, pop_list, structure
 
 def get_parser():
     parser = ArgumentParser()
     parser.add_argument("--duration", type=float, default=1000.0, nargs="?", help="Duration to simulate (ms)")
-    parser.add_argument("--stim", action="store_true", help="Whether to apply a stimulus")
-    parser.add_argument("--stim-start", type=float, default=300, help="start time of stim")
-    parser.add_argument("--stim-end", type=float, default=800, help="end time of stim")
     parser.add_argument("--buffer", action="store_true", help="Whether use buffer store spike")
     parser.add_argument("--buffer-size", type=int, default=100, nargs="?", help="Size of recording buffer")
     parser.add_argument("--SPARSE", action="store_true", help="Whether use sparse connectivity")
-    parser.add_argument("--inSyn", action="store_true", help="Whether record inSyn")
     parser.add_argument("--save-spike", action="store_true", help="whether store spike")
     parser.add_argument("--device", type=int, default=0, help="Device ID to use for simulation")
     parser.add_argument("--poisson", action="store_true", help="Whether use poisson input")
@@ -74,51 +102,21 @@ def parse_all_args():
     args_dict.update(extra_args)
     return Namespace(**args_dict)
 
-def getModelName(args, area_list):
-    model_name = f"{args.duration/1000.0:.1f}s"
-    # model_content = collection_params['model_content']
-    # struct= get_struct()
-    # for area in struct.keys():
-    #     model_name += f"_{area}"
-    #     if len(struct[area]) != 17:
-    #         for layer in model_content[area]:
-    #             model_name += f"_{layer}"
-    for area in area_list:
-        model_name += f"_{area}"
-    if args.stim:
-        model_name += f"_stim"
-        model_name += f"_start{args.stim_start/1000:.1f}s"
-        model_name += f"_end{args.stim_end/1000:.1f}s"
-    if args.buffer:
-        model_name += f"_buffer{args.buffer_size/1000:.1f}s"
-    if args.SPARSE:
-        model_name += f"_SPARSE"
-    if ("free_scale_input" in args):
-        model_name += f"_free{args.free_scale_input}"
-    if ("free_scale_syn" in args):
-        model_name += f"_free{args.free_scale_syn}"
-    if ("scale_stim" in args):
-        model_name += f"_free{args.scale_stim}"
-    return model_name
-
 
 if __name__ == "__main__":
     args = parse_all_args()
-    NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, all_area, pop_list = prepare(args)
+    NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, Dist, all_area, pop_list, struct = prepare()
     # area_list = all_area[int(args.AreaIdx)]
-    area_list = all_area[0:8]
+    area_list = all_area[0:int(args.AreaNum)]
     if isinstance(area_list, str):
         area_list = [area_list]
     
-    model_name = getModelName(args, area_list)
-    with open("output/last_model_name.txt", "w") as f:
-        f.write(model_name)
     rand_str = ''
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
     os.makedirs("GenCODE/", exist_ok=True)
-    model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
+    model = GeNNModel("float", "GenCODE/SchmditModel_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
     model.dt = 0.1
-    model.fuse_postsynaptic_models = not args.inSyn
+    model.fuse_postsynaptic_models = True
     model.default_narrow_sparse_ind_enabled = True
     model.timing_enabled = True
     model.default_var_location = VarLocation.HOST_DEVICE
@@ -126,131 +124,76 @@ if __name__ == "__main__":
     
     exp_curr_init = init_postsynaptic("ExpCurr", {"tau": 0.5})
 
-    trigger_pulse_model = pygenn.create_current_source_model(
-        "trigger_pulse",
-        params=["start_time","end_time","magnitude"],  # 参数：噪声强度
-        injection_code=
-        """
-        if (t >= start_time && t < end_time) {
-            injectCurrent(magnitude);
-        }
-        """
-    )
-    suffix = generate_unique_suffix()
-    struct=get_struct()
-    # connectom(suffix, SynapsesNumber, SynapsesWeightMean, NeuronNumber, struct)
-    if "expLIF" in args:
-        neuronParam = collection_params['expLIF_dict']
-        params = {
-            "C": neuronParam['C_m'] / 1000, "TauM": neuronParam['tau_m'],
-            "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
-            "Vthresh": neuronParam['V_th'], "Ioffset": 0, "TauRefrac": neuronParam['t_ref'],
-            "DeltaT": neuronParam['DeltaT'], "VT": neuronParam['VT']
-        }
-    else:
-        neuronParam=collection_params['single_neuron_dict']
-        params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
-                    "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
-                    "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
-                    "TauRefrac": neuronParam['t_ref']}
-    input=collection_params['connection_params']['input']
-    stim_info=collection_params['stim']
+    neuronParam=collection_params['single_neuron_dict']
+    params = {"C": neuronParam['C_m']/1000, "TauM": neuronParam['tau_m'],
+                "Vrest": neuronParam['E_L'], "Vreset": neuronParam['V_reset'],
+                "Vthresh" : neuronParam['V_th'], "Ioffset": 0,
+                "TauRefrac": neuronParam['t_ref']}
     # print("Creating neuron populations:")
     total_neurons = 0
     neuron_group = 0
     synapse_group = 0
     neuron_populations = defaultdict(dict)
     poisson_init = {"current": 0.0}
-    lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": params['TauRefrac']}
-    Cm = collection_params['single_neuron_dict']['Cm']
-    gL = collection_params['single_neuron_dict']['gL']
-    tref = collection_params['single_neuron_dict']['tref']
-    Vrest = collection_params['single_neuron_dict']['Vrest']
-    Vth = collection_params['single_neuron_dict']['Vth']
-    rate_ext = collection_params['single_neuron_dict']['rate_ext']
+    lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": 0.0}
+    rate_ext = collection_params['connection_params']['rate_ext']
     for area in area_list:
         for pop in pop_list:
-            popName = area+pop
-            params["C"] = Cm[pop] / 1000.0
-            params["TauM"] = Cm[pop] / gL[pop]
-            params["Vrest"] = Vrest[pop]
-            params["Vreset"] = Vrest[pop] - 10.0
-            params["Vthresh"] = Vth[pop]
-            params["TauRefrac"] = tref[pop]
-            if pop == "S4" and ("free_scale_input" in args):
-                input[pop] += float(args.free_scale_input)
-            # if pop == "S5" and ("free_scale_input" in args):
-            #     input[pop] += 1.2*float(args.free_scale_input)
-            # if pop == "P5" and ("free_scale_input" in args):
-            #     input[pop] += 2.2*float(args.free_scale_input)
-            # if pop == "V5" and ("free_scale_input" in args):
-            #     input[pop] += 2.4*float(args.free_scale_input)
-            # if pop == "V4" and ("free_scale" in args):
-            #     input[pop] += 10*float(args.free_scale)
-            # if pop[0] == "S":
-            #     params["DeltaT"] = 1.0
-            if args.poisson:
-                params["Ioffset"] = 0.0
-            else:
-                params["Ioffset"] = input[pop] / 1000.0
-            pop_size = NeuronNumber[area][pop]
-            if pop_size > 0:
-                neuron_group += 1
-                if "expLIF" in args:
-                    neuron_pop = model.add_neuron_population(popName, pop_size, expLIF_model, params, lif_init)
-                else:
+            if has_key_path(NeuronNumber, area, pop):
+                popName = area+pop
+                pop_size = NeuronNumber[area][pop]
+                if pop_size > 0:
+                    neuron_group += 1
                     neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", params, lif_init)
-                if args.stim and has_key_path(stim_info, area, pop):
-                    s=stim_info[area][pop]
-                    # if args.scale_stim:
-                    #     s += float(args.scale_stim)
-                    model.add_current_source(area + pop + '_pulse',
-                        trigger_pulse_model, neuron_pop,
-                        {   "start_time":args.stim_start,
-                            "end_time":args.stim_end,
-                            "magnitude": s/1000.0},
-                )
 
-                if args.poisson:
-                    ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1
-                    rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 3000
-                    # rate = rate_ext[pop]/100
-                    if pop == "E23":
-                        rate *= 1.2
-                    # if pop == "V4":
-                    #     rate *= 0.1
-                    poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
-                    model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
-                # Enable spike recording
-                neuron_pop.spike_recording_enabled = True
+                    if args.poisson:
+                        ext_weight = SynapsesWeightMean[area][pop]['external']['external']
+                        K = SynapsesNumber[area][pop]['external']['external'] / pop_size
+                        rate = rate_ext * K * 1
+                        poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
+                        model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
+                    # Enable spike recording
+                    neuron_pop.spike_recording_enabled = True
 
-                # print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (popName, pop_size, input[pop]/1000.0))
-                total_neurons += pop_size
-                neuron_populations[area][pop] = neuron_pop
+                    # print("\tPopulation %s: num neurons:%u, external DC offset:%f" % (popName, pop_size, input[pop]/1000.0))
+                    total_neurons += pop_size
+                    neuron_populations[area][pop] = neuron_pop
 
-    if "CUT" not in args:
-        total_synapses = 0
-        synapse_populations = nested_dict()
-        for areaTar, areaSrc in product(area_list, area_list):
-            for popTar, popSrc in product(pop_list, pop_list):
-                wAve = SynapsesWeightMean[areaTar][popTar][areaSrc][popSrc]/1000.0
-                wSd = SynapsesWeightSd[areaTar][popTar][areaSrc][popSrc]/1000.0
+    total_synapses = 0
+    synapse_populations = nested_dict()
+    for areaTar, areaSrc in product(area_list, area_list):
+        for popTar, popSrc in product(pop_list, pop_list):
+            if has_key_path(SynapsesNumber, areaTar, popTar, areaSrc, popSrc):
+                wAve = SynapsesWeightMean[areaTar][popTar][areaSrc][popSrc] / 1
+                wSd = SynapsesWeightSd[areaTar][popTar][areaSrc][popSrc] / 1
                 synNum = SynapsesNumber[areaTar][popTar][areaSrc][popSrc]
                 tarName = areaTar+popTar
                 srcName = areaSrc+popSrc
                 synName = srcName+"2"+tarName
-                meanDelay=delayMap[areaTar][popTar][areaSrc][popSrc]['ave']
-                delay_sd=delayMap[areaTar][popTar][areaSrc][popSrc]['sd']
-                max_d=delayMap[areaTar][popTar][areaSrc][popSrc]['max']
+                if areaSrc == areaTar:
+                    if 'E' in popSrc:
+                        meanDelay=1.5
+                        delay_sd=0.75
+                        max_d=15.0
+                    else:
+                        meanDelay=0.75
+                        delay_sd=0.375
+                        max_d=7.5
+                else:
+                    meanDelay = Dist[areaSrc][areaTar] / collection_params['connection_params']['interarea_speed']
+                    delay_sd = meanDelay * 0.5
+                    max_d = meanDelay * 10
                 if(synNum>0):
                     synapse_group += 1
                     connect_params = {"num": synNum}
-                    d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
+                    d_dist = {"mean": meanDelay, "sd": delay_sd, "min": model.dt, "max": max_d}
                     total_synapses += synNum
                     matrix_type = "SPARSE" if args.SPARSE else "PROCEDURAL"
                     if popSrc.startswith("E"):
+                        wAve = abs(wAve)
                         w_dist = {"mean": wAve, "sd": wSd, "min": 0.0, "max": float(np.finfo(np.float32).max)}
                     else:
+                        wAve = -abs(wAve)
                         w_dist = {"mean": wAve, "sd": wSd, "min": float(-np.finfo(np.float32).max), "max": 0.0}
                     
                     static_synapse_init = init_weight_update("StaticPulseDendriticDelay", {},
@@ -268,7 +211,7 @@ if __name__ == "__main__":
                     synapse_populations[areaTar][popTar][areaSrc][popSrc] = syn_pop
                 else:
                     synapse_populations[areaTar][popTar][areaSrc][popSrc] = None
-        print("Total neurons=%u, total neuron groups=%u, total synapses=%u, total synapse groups=%u" % (total_neurons, neuron_group, total_synapses, synapse_group))
+    print("Total neurons=%u, total neuron groups=%u, total synapses=%u, total synapse groups=%u" % (total_neurons, neuron_group, total_synapses, synapse_group))
 
     print("Building Model")
     build_start_time = perf_counter()
@@ -287,7 +230,6 @@ if __name__ == "__main__":
         model.load(num_recording_timesteps=duration_timesteps)
     ld_end_time = perf_counter()
     print("\tLoad:%f" % ((ld_end_time - ld_start_time) * 1000.0))
-    print("Simulating")
 
 
 
@@ -313,25 +255,16 @@ if __name__ == "__main__":
     pynvml.nvmlShutdown()
 
     # V=[]
+    print("Simulating")
     while model.t < duration:
         model.step_time()
-        # pop=neuron_populations["V1"]["S4"]
-        # pop.vars["V"].pull_from_device()
-        # v=pop.vars["V"].current_values
-        # V.append(v[0])
         if args.buffer:
             if not model.timestep % args.buffer_size:
                 model.pull_recording_buffers_from_device()
                 record_spike(neuron_populations, spike_data)
-        if args.inSyn:
-            record_inSyn(out_post_history, record_I, synapse_populations, pop_list)
         if (model.timestep % ten_percent_timestep) == 0:
             flag += 1
             print("%u%%" % (flag * 10))
-
-    # plt.figure(figsize=(8, 5))
-    # plt.plot(V)
-    # plt.savefig("single_neuron_v.png")
 
     sim_end_time = perf_counter()
 
@@ -351,9 +284,6 @@ if __name__ == "__main__":
         #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
         visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
                 model_name="HMAM", NeuronNumber=NeuronNumber)
-
-    if args.inSyn:
-        save_inSyn(out_post_history)
 
     print("Timing:")
     print("\tBuild:%f" % ((build_end_time - build_start_time)))

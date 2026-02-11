@@ -176,7 +176,7 @@ def getWeightMap_full_type(structure, args):
     for tarArea, tarList in structure.items():
         for srcArea, srcList in structure.items():
             for tarPop, srcPop in product(tarList, srcList):
-                type_ = srcPop
+                type_ = tarPop
                 PSC_over_PSP = PSC_over_PSP_[type_]
                 if srcPop[0] == 'E':
                     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP
@@ -188,18 +188,18 @@ def getWeightMap_full_type(structure, args):
                     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * -1
                 if srcPop[0] == "V":
                     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * -1
-                if tarPop =='S4' and srcPop == 'V4':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 1
-                # if tarPop =='S5' and srcPop == 'E5':
-                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= beta_norm[tarPop]
-                # if tarPop =='S23' and srcPop == tarPop:
-                #         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 10
-                if tarPop =='S4' and srcPop == tarPop and tarArea == srcArea and tarArea != 'V1':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 4
-                if tarPop =='S5' and srcPop == tarPop:
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 1000
+                # if tarPop == 'S4' and srcPop == 'E4' and tarArea == srcArea:
+                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 0.98
+                # if tarPop == 'V4' and srcPop == 'S4' and tarArea == srcArea:
+                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 0.95
+                # if tarPop == 'V4' and srcPop == 'V4':
+                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 2
                 if tarPop =='S23' and srcPop == tarPop:
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 800
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 10
+                if tarPop =='S4' and srcPop == tarPop:
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 7
+                if tarPop =='S5' and srcPop == tarPop:
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 12
                 # if tarPop == "H1" and srcPop[0] != "E":
                 #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 0.5
                 SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] = abs(SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop]) * connection_params['PSC_rel_sd_normal']
@@ -247,3 +247,16 @@ def getDelayMap(structure, Dist):
                     max_d = max(max_intra_area_delay, meanDelay + (sd * normal_quantile_cdf))
                 delayMap[tarArea][tarPop][srcArea][srcPop]={'ave':meanDelay,'sd':sd,'max':max_d}
     return delayMap
+
+def getInd(SynapsesNumber, NeuronNumber):
+    Ind = nested_dict()
+    for tarArea, tarList in SynapsesNumber.items():
+        for tarPop, srcDict in tarList.items():
+            for srcArea, srcList in srcDict.items():
+                if srcArea == tarArea:
+                    for srcPop, num in srcList.items():
+                        if num > 0:
+                            Ind[tarArea][tarPop][srcPop] = num / NeuronNumber[tarArea][tarPop]
+                        else:
+                            Ind[tarArea][tarPop][srcPop] = 0
+    return Ind.to_dict()

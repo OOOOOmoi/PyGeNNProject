@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 from nested_dict import nested_dict
 from config import collection_params, vis_content, record_I
-from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type
+from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type, getInd
 from visual import visualize, generate_unique_suffix
 from connectom import connectom
 from record import record_spike, save_spike, record_inSyn, save_inSyn
@@ -38,7 +38,8 @@ def prepare(args):
     # SynapsesWeightMean, SynapsesWeightSd = getWeightMap(model_structure, args)
     SynapsesWeightMean, SynapsesWeightSd = getWeightMap_full_type(model_structure, args)
     delayMap = getDelayMap(model_structure, Dist)
-    return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, area_list, pop_list
+    Ind = getInd(SynapsesNumber, NeuronNumber)
+    return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, area_list, pop_list, Ind
 
 def get_parser():
     parser = ArgumentParser()
@@ -105,9 +106,10 @@ def getModelName(args, area_list):
 
 if __name__ == "__main__":
     args = parse_all_args()
-    NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, all_area, pop_list = prepare(args)
-    # area_list = all_area[int(args.AreaIdx)]
-    area_list = all_area[0:int(args.AreaNum)]
+    NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, all_area, pop_list, Ind = prepare(args)
+    Ind_V1 = Ind["V1"]
+    area_list = all_area[int(args.AreaIdx)]
+    # area_list = all_area[0:int(args.AreaNum)]
     if isinstance(area_list, str):
         area_list = [area_list]
     
@@ -117,7 +119,7 @@ if __name__ == "__main__":
     rand_str = ''
     rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
     os.makedirs("GenCODE/", exist_ok=True)
-    model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device)
+    model = GeNNModel("float", "GenCODE/" + model_name + "_" + rand_str, device_select_method=DeviceSelect.MANUAL, manual_device_id=args.device+1)
     model.dt = 0.1
     model.fuse_postsynaptic_models = not args.inSyn
     model.default_narrow_sparse_ind_enabled = True
@@ -216,10 +218,10 @@ if __name__ == "__main__":
                     ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1
                     rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 3000
                     # rate = rate_ext[pop]/100
-                    if pop == "E23":
-                        rate *= 1.2
+                    # if pop == "S4":
+                    #     rate *= 0
                     # if pop == "V4":
-                    #     rate *= 0.1
+                    #     rate *= 0
                     poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                     model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
                 # Enable spike recording
@@ -233,9 +235,11 @@ if __name__ == "__main__":
         total_synapses = 0
         synapse_populations = nested_dict()
         for areaTar, areaSrc in product(area_list, area_list):
+            Ind_ = Ind[areaTar]
             for popTar, popSrc in product(pop_list, pop_list):
-                wAve = SynapsesWeightMean[areaTar][popTar][areaSrc][popSrc]/1000.0
-                wSd = SynapsesWeightSd[areaTar][popTar][areaSrc][popSrc]/1000.0
+                factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_V1[popTar][popSrc] > 0 else 1
+                wAve = SynapsesWeightMean[areaTar][popTar][areaSrc][popSrc]/1000.0 * factor
+                wSd = SynapsesWeightSd[areaTar][popTar][areaSrc][popSrc]/1000.0 * factor
                 synNum = SynapsesNumber[areaTar][popTar][areaSrc][popSrc]
                 tarName = areaTar+popTar
                 srcName = areaSrc+popSrc
@@ -249,6 +253,9 @@ if __name__ == "__main__":
                     d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
                     total_synapses += synNum
                     matrix_type = "SPARSE" if args.SPARSE else "PROCEDURAL"
+                    # if popTar == "V4":
+                    #     wAve *= 0
+                    #     wSd *= 0
                     if popSrc.startswith("E"):
                         w_dist = {"mean": wAve, "sd": wSd, "min": 0.0, "max": float(np.finfo(np.float32).max)}
                     else:
@@ -345,13 +352,13 @@ if __name__ == "__main__":
     # Merge data
     if args.save_spike:
         save_spike(spike_data)
-    # for area, area_dict in spike_data.items():
-    #     spike_data_temp = {}
-    #     spike_data_temp[area] = area_dict
-    #     # visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
-    #     #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
-    #     visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
-    #             model_name="HMAM", NeuronNumber=NeuronNumber)
+    for area, area_dict in spike_data.items():
+        spike_data_temp = {}
+        spike_data_temp[area] = area_dict
+        # visualize(suffix, spike_data, duration=args.duration, model_name=model_name, drop=0, neurons_per_group=200, 
+        #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+        visualize(suffix="test", spike_data=spike_data_temp, duration=1000,
+                model_name="HMAM", NeuronNumber=NeuronNumber)
 
     if args.inSyn:
         save_inSyn(out_post_history)

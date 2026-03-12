@@ -2,3 +2,5 @@
 *.png
 *.jpg
 *_CODE/
+*.out
+*.log

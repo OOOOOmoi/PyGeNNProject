@@ -30,7 +30,7 @@ MAX_SHARED_BINS = 1024
 current_dir = os.path.dirname(__file__)
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 buffer_size = 1
-duration = 200
+duration = 10000
 duration_timesteps = duration / DT_MS
 stim_start = 400
 stim_end = 800
@@ -77,7 +77,7 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, al
             for src_area in all_area[0:area_num]:
                 for src_pop in pop_list:
                     conn_num = SN[tar_area][tar_pop][src_area][src_pop]
-                    w = weight[tar_area][tar_pop][src_area][src_pop] / 1000 * 0
+                    w = weight[tar_area][tar_pop][src_area][src_pop] / 1000
                     if conn_num == 0 or NN[tar_area][tar_pop] == 0 or NN[src_area][src_pop] == 0 or src_area == tar_area:
                         continue  # 无连接则跳过
                     prob = conn_num / NN[src_area][src_pop] / NN[tar_area][tar_pop]
@@ -402,6 +402,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     Vth = collection_params['single_neuron_dict']['Vth']
     rate_ext = collection_params['single_neuron_dict']['rate_ext']
     Ind_V1 = Ind['V1']
+    neuron_group = 0
     # 创建神经元群体
     for area in area_list:
         for pop in pop_list:
@@ -414,6 +415,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             params["TauRefrac"] = tref[pop]
             pop_size = NeuronNumber[area][pop]
             if pop_size > 0:
+                neuron_group += 1
                 neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", params, lif_init)
                 if has_key_path(stim_info, area, pop):
                     s=stim_info[area][pop]
@@ -425,7 +427,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 )
 
                 ext_weight = weight[area][pop]['external']['external']
-                rate = SN[area][pop]['external']['external'] / NN[area][pop] / 1000
+                rate = SN[area][pop]['external']['external'] / NN[area][pop] / 3000
                 # rate = rate_ext[pop]/1000
                 poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                 model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
@@ -436,11 +438,15 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 neuron_populations[area][pop] = neuron_pop
     total_synapses = 0
     synapse_populations = nested_dict()
+    syn_group = 0
     # 创建突触群体
     for areaTar, areaSrc in product(area_list, area_list):
         Ind_ = Ind[areaTar]
         for popTar, popSrc in product(pop_list, pop_list):
-            factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_V1[popTar][popSrc] > 0 else 1
+            if areaTar == areaSrc:
+                factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_[popTar][popSrc] > 0 else 1
+            else:
+                factor = 1
             wAve = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 * factor
             wSd = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 / 10 * factor
             synNum = SN[areaTar][popTar][areaSrc][popSrc]
@@ -451,8 +457,9 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             delay_sd=delayMap[areaTar][popTar][areaSrc][popSrc]['sd']
             max_d=delayMap[areaTar][popTar][areaSrc][popSrc]['max']
             if(synNum>0):
+                syn_group += 1
                 connect_params = {"num": synNum}
-                d_dist = {"mean": meanDelay, "sd": delay_sd, "min": 0.0, "max": max_d}
+                d_dist = {"mean": meanDelay, "sd": delay_sd, "min": model.dt, "max": max_d}
                 total_synapses += synNum
                 matrix_type = "PROCEDURAL"
                 if popSrc.startswith("E"):
@@ -482,13 +489,27 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 synapse_populations[areaTar][popTar][areaSrc][popSrc] = None
         print("Total neurons=%u, total synapses=%u" % (total_neurons, total_synapses))
     # 代码生成阶段
-    print(f"Building worker {worker_id} of {total_neurons} neurons and {total_synapses} synapses on device {gpu_id}")
+    time_start = perf_counter()
     model.build()
+    time_end = perf_counter()
+    build_time = time_end - time_start
     # 分配显存阶段
-    print(f"Loading worker {worker_id} on device {gpu_id}")
+    time_start = perf_counter()
     model.load(num_recording_timesteps=buffer_size)
-
-    print("Simulating")
+    time_end = perf_counter()
+    ld_time = time_end - time_start
+    print(f"{worker_id} build over")
+    # 确保 log 目录存在并清空当前 worker 的 log 文件（truncate）
+    os.makedirs("log", exist_ok=True)
+    log_path = f"log/worker_{worker_id}.log"
+    open(log_path, "w").close()  # 以写模式打开并立即关闭以清空文件内容
+    with open(f"log/worker_{worker_id}.log", "a") as f:
+        f.write(f"{total_neurons},"
+                f"{neuron_group},"
+                f"{total_synapses},"
+                f"{syn_group},"
+                f"{build_time*1000:.2f},"
+                f"{ld_time*1000:.2f}\n")
     # 构建 spike_count_buffer 和 inSyn_buffer
     spike_count_buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array  = \
         build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list,
@@ -532,7 +553,9 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 pop_offsets[(area, pop)] = (offset, size)
                 offset += size
 
-
+    log_buffer = []
+    log_flush_interval = 500  # 每 100 步写一次
+    time_start = perf_counter()
     while model.t < duration:
         if spike_count_buffer:
             t0 = perf_counter()
@@ -605,16 +628,37 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                         offset += pop_size
             t9 = perf_counter()
             # 子进程本地打印自己想要的时间统计（主进程不再收到这些字段）
-            print(f"[Worker {worker_id}] timestep={model.timestep} step_time={(t11-t10)*1000:.3f} ms "
-                  f"update_V={(t9-t6)*1000:.3f} ms update_inSyn={(t4-t3)*1000:.3f} ms "
-                  f"update_decay={(t6-t5)*1000:.3f} ms update_spike={(t2 -t0)*1000:.3f} ms "
-                  f"total_update={(t9-t0)*1000:.3f} ms")
+            # print(f"[Worker {worker_id}] timestep={model.timestep} step_time={(t11-t10)*1000:.3f} ms "
+            #       f"update_V={(t9-t6)*1000:.3f} ms update_inSyn={(t4-t3)*1000:.3f} ms "
+            #       f"update_decay={(t6-t5)*1000:.3f} ms update_spike={(t2 -t0)*1000:.3f} ms "
+            #       f"total_update={(t9-t0)*1000:.3f} ms")
+            log_buffer.append(
+                f"{model.timestep},"
+                f"{(t11-t10)*1000:.3f},"
+                f"{(t9-t6)*1000:.3f},"
+                f"{(t4-t3)*1000:.3f},"
+                f"{(t6-t5)*1000:.3f},"
+                f"{(t2-t0)*1000:.3f},"
+                f"{(t9-t0)*1000:.3f}"
+            )
+            if len(log_buffer) >= log_flush_interval:
+                with open(f"log/worker_{worker_id}.log", "a") as f:
+                    f.write("\n".join(log_buffer) + "\n")
+                log_buffer.clear()
         else:
             t10 = perf_counter()
             model.step_time()
             t11 = perf_counter()
             # 子进程本地打印自己想要的时间统计（主进程不再收到这些字段）
-            print(f"[Worker {worker_id}] timestep={model.timestep} step_time={(t11-t10)*1000:.3f} ms ")
+            # print(f"[Worker {worker_id}] timestep={model.timestep} step_time={(t11-t10)*1000:.3f} ms ")
+            log_buffer.append(
+                f"{model.timestep},"
+                f"{(t11-t10)*1000:.3f},"
+            )
+            if len(log_buffer) >= log_flush_interval:
+                with open(f"log/worker_{worker_id}.log", "a") as f:
+                    f.write("\n".join(log_buffer) + "\n")
+                log_buffer.clear()
 
         # 6) 记录 spikes -> 本地保存 -> 生成 processed 发给主进程
         spike_data_temp = { area: {pop: [] for pop in neuron_populations[area].keys()} for area in neuron_populations.keys() }
@@ -665,7 +709,9 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
         elif msg["type"] == "stop":
             break
         current_step += 1
-
+    time_end = perf_counter()
+    with open(f"log/worker_{worker_id}.log", "a") as f:
+        f.write(f"total_simulation_time,{(time_end - time_start)*1000:.2f} ms\n")
     # 仿真循环结束：一次性把 local_spike_history 发回主进程用于绘图（可能很大）
     final_msg = {"worker_id": worker_id, "final_spike_data": local_spike_history}
     final_queue.put(final_msg)
@@ -738,6 +784,8 @@ if __name__ == "__main__":
     # 主循环
     step = 0
     max_steps = duration_timesteps // buffer_size
+    master_log_buffer = []
+    log_flush_interval = 100 * num_workers  # 每 100 步写一次
     while step < max_steps:
         per_worker_processed = []
         # ---- 等待所有子进程提交数据 ----
@@ -750,10 +798,21 @@ if __name__ == "__main__":
             data_size = len(pickle.dumps(msg))
             speed_MBps = data_size / (latency * 1024 * 1024)
 
-            print(f"[Round {step}] Worker {msg['worker_id']} -> 主进程: "
-                f"延迟 {latency*1000:.3f} ms, "
-                f"速度 {speed_MBps:.2f} MB/s, "
-                f"大小 {data_size/1024:.1f} KB")
+            # print(f"[Round {step}] Worker {msg['worker_id']} -> 主进程: "
+            #     f"延迟 {latency*1000:.3f} ms, "
+            #     f"速度 {speed_MBps:.2f} MB/s, "
+            #     f"大小 {data_size/1024:.1f} KB")
+            master_log_buffer.append(
+                f"{step},"
+                f"{msg['worker_id']},"
+                f"{latency*1000:.3f},"
+                f"{speed_MBps:.2f},"
+                f"{data_size/1024:.1f}"
+            )
+            if len(master_log_buffer) >= log_flush_interval:
+                with open(f"log/master.log", "a") as f:
+                    f.write("\n".join(master_log_buffer) + "\n")
+                master_log_buffer.clear()
             per_worker_processed.append(msg["processed"]["spike_count"])
 
         # 聚合 spike_count（把所有 worker 的计数相加），并重算 rate
@@ -808,5 +867,5 @@ if __name__ == "__main__":
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
         save_spike(spike_data_temp)
-        visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
-                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+        # visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
+        #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)

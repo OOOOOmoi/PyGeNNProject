@@ -1,0 +1,7 @@
+pandas
+matplotlib
+scipy
+seaborn
+numba
+nested_dict
+pynvml

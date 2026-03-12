@@ -108,8 +108,8 @@ if __name__ == "__main__":
     args = parse_all_args()
     NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, all_area, pop_list, Ind = prepare(args)
     Ind_V1 = Ind["V1"]
-    area_list = all_area[int(args.AreaIdx)]
-    # area_list = all_area[0:int(args.AreaNum)]
+    # area_list = all_area[int(args.AreaIdx)]
+    area_list = all_area[0:int(args.AreaNum)]
     if isinstance(area_list, str):
         area_list = [area_list]
     
@@ -216,7 +216,7 @@ if __name__ == "__main__":
 
                 if args.poisson:
                     ext_weight = SynapsesWeightMean[area][pop]['external']['external'] / 1
-                    rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 3000
+                    rate = SynapsesNumber[area][pop]['external']['external'] / NeuronNumber[area][pop] / 1000
                     # rate = rate_ext[pop]/100
                     # if pop == "S4":
                     #     rate *= 0
@@ -237,7 +237,10 @@ if __name__ == "__main__":
         for areaTar, areaSrc in product(area_list, area_list):
             Ind_ = Ind[areaTar]
             for popTar, popSrc in product(pop_list, pop_list):
-                factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_V1[popTar][popSrc] > 0 else 1
+                if areaTar == areaSrc:
+                    factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_[popTar][popSrc] > 0 else 1
+                else:
+                    factor = 1
                 wAve = SynapsesWeightMean[areaTar][popTar][areaSrc][popSrc]/1000.0 * factor
                 wSd = SynapsesWeightSd[areaTar][popTar][areaSrc][popSrc]/1000.0 * factor
                 synNum = SynapsesNumber[areaTar][popTar][areaSrc][popSrc]
@@ -372,18 +375,18 @@ if __name__ == "__main__":
     print("\tNeuron simulation:%f" % (model.neuron_update_time))
     print("\tSynapse simulation:%f" % (model.presynaptic_update_time))
 
-    filename = 'simulation_results.csv'
-    header = ['neuron_groups', 'neurons', 'synapse_groups', 'synapses',
-              'build_time_s', 'load_time_s', 'mem_usage', 'sim_time_s']
+    # filename = 'simulation_results.csv'
+    # header = ['neuron_groups', 'neurons', 'synapse_groups', 'synapses',
+    #           'build_time_s', 'load_time_s', 'mem_usage', 'sim_time_s']
     
-    row = [neuron_group, total_neurons, synapse_group, total_synapses,
-           (build_end_time - build_start_time),
-           (ld_end_time - ld_start_time),
-           mem_usage,
-           (sim_end_time - sim_start_time)]
-    file_exists = os.path.exists(filename)
-    with open(filename, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(header)  # 只在第一次写表头
-        writer.writerow(row)        # 追加一行数据
+    # row = [neuron_group, total_neurons, synapse_group, total_synapses,
+    #        (build_end_time - build_start_time),
+    #        (ld_end_time - ld_start_time),
+    #        mem_usage,
+    #        (sim_end_time - sim_start_time)]
+    # file_exists = os.path.exists(filename)
+    # with open(filename, "a", newline="", encoding="utf-8") as f:
+    #     writer = csv.writer(f)
+    #     if not file_exists:
+    #         writer.writerow(header)  # 只在第一次写表头
+    #     writer.writerow(row)        # 追加一行数据

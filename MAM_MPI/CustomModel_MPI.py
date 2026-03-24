@@ -30,11 +30,6 @@ MAX_SHARED_BINS = 1024
 current_dir = os.path.dirname(__file__)
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 buffer_size = 1
-duration = 10000
-duration_timesteps = duration / DT_MS
-stim_start = 400
-stim_end = 800
-
 # ===============================================================
 # 进程区域索引生成函数，生成 1 ~ num_areas 的列表，然后均匀划分为 num_workers 份
 # ===============================================================
@@ -62,7 +57,7 @@ def split_indices(num_areas, num_workkers):
 # tar_area_list: 当前进程负责的区域列表
 # net: 网络配置字典
 # ===============================================================
-def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, all_area, pop_list, gL):
+def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, all_area, pop_list, gL, scale_):
     buffer = {}
     weight_array = []
     prob_array = []
@@ -77,7 +72,8 @@ def build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt, tar_area_list, al
             for src_area in all_area[0:area_num]:
                 for src_pop in pop_list:
                     conn_num = SN[tar_area][tar_pop][src_area][src_pop]
-                    w = weight[tar_area][tar_pop][src_area][src_pop] / 1000
+                    w = weight[tar_area][tar_pop][src_area][src_pop] / 1000 * scale_
+
                     if conn_num == 0 or NN[tar_area][tar_pop] == 0 or NN[src_area][src_pop] == 0 or src_area == tar_area:
                         continue  # 无连接则跳过
                     prob = conn_num / NN[src_area][src_pop] / NN[tar_area][tar_pop]
@@ -323,8 +319,11 @@ def get_neu_vars_array(neuron_populations, spike_count_buffer, merge=True):
 # ===============================================================
 # 准备函数，加载参数文件并生成所需的各种映射
 # ===============================================================
-def prepare():
-    DataPath=os.path.join(parent_dir, "custom_Data_Model_3396.json")
+def prepare(args):
+    if "surface" in args:
+        DataPath=os.path.join(parent_dir, f"model_info_schmidt_motif_diff_s/default_Data_Model__{int(args.surface)}mm2.json")
+    else:
+        DataPath=os.path.join(parent_dir, f"model_info_schmidt_motif_diff_s/custom_Data_Model_3396.json")
     with open(DataPath, 'r') as f:
         ParamOfAll = json.load(f)
     SynapsesNumber=ParamOfAll["synapses"]
@@ -338,6 +337,48 @@ def prepare():
     delayMap = getDelayMap(model_structure, Dist)
     Ind = getInd(SynapsesNumber, NeuronNumber)
     return NeuronNumber, SynapsesNumber, SynapsesWeightMean, SynapsesWeightSd, delayMap, area_list, pop_list, Ind
+
+
+def get_parser():
+    parser = ArgumentParser()
+    parser.add_argument("--duration", type=float, default=500.0, nargs="?", help="Duration to simulate (ms)")
+    parser.add_argument("--stim", action="store_true", help="Whether to apply a stimulus")
+    parser.add_argument("--stim-start", type=float, default=300, help="start time of stim")
+    parser.add_argument("--stim-end", type=float, default=800, help="end time of stim")
+    parser.add_argument("--buffer", action="store_true", help="Whether use buffer store spike")
+    parser.add_argument("--buffer-size", type=int, default=100, nargs="?", help="Size of recording buffer")
+    parser.add_argument("--save-spike", action="store_true", help="whether store spike")
+    return parser
+
+def parse_all_args():
+    parser = get_parser()
+    args, unknown = parser.parse_known_args()
+
+    # 手动解析未知参数（--key val 或 --flag）
+    extra_args = {}
+    key = None
+    for item in unknown:
+        if item.startswith('--'):
+            key = item.lstrip('--').replace('-', '_')
+            extra_args[key] = True  # 默认是布尔开关
+        elif key is not None:
+            extra_args[key] = item  # 赋值
+            key = None
+
+    # 合并已知参数与未知参数
+    args_dict = vars(args)
+    args_dict.update(extra_args)
+    return Namespace(**args_dict)
+
+def getModelName(args):
+    model_name = f"{args.duration/1000.0:.1f}s"
+    if ("AreaNum" in args):
+        model_name += f"_AreaNum{args.AreaNum}"
+    if ("surface" in args):
+        model_name += f"_surface{args.surface}"
+    if ("scale" in args):
+        model_name += f"_scale{args.scale}"
+    return model_name
 
 # ===============================================================
 # 子进程函数 Part，用于每个工作进程创建和运行神经网络模型
@@ -357,7 +398,7 @@ def prepare():
 # done_queue: 进程间通信队列，通知主进程任务完成
 # final_queue: 进程间通信队列，发送最终结果到主进程
 # ===============================================================
-def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, Ind,
+def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, Ind, model_name, args,
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
     model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
@@ -417,14 +458,14 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             if pop_size > 0:
                 neuron_group += 1
                 neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", params, lif_init)
-                if has_key_path(stim_info, area, pop):
-                    s=stim_info[area][pop]
-                    model.add_current_source(area + pop + '_pulse',
-                        trigger_pulse_model, neuron_pop,
-                        {   "start_time":stim_start,
-                            "end_time":stim_end,
-                            "magnitude": s/1000.0},
-                )
+                # if has_key_path(stim_info, area, pop):
+                #     s=stim_info[area][pop]
+                #     model.add_current_source(area + pop + '_pulse',
+                #         trigger_pulse_model, neuron_pop,
+                #         {   "start_time":stim_start,
+                #             "end_time":stim_end,
+                #             "magnitude": s/1000.0},
+                # )
 
                 ext_weight = weight[area][pop]['external']['external']
                 rate = SN[area][pop]['external']['external'] / NN[area][pop] / 3000
@@ -446,7 +487,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             if areaTar == areaSrc:
                 factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_[popTar][popSrc] > 0 else 1
             else:
-                factor = 1
+                factor = float(args.scale) if "scale" in args else 1.0
             wAve = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 * factor
             wSd = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 / 10 * factor
             synNum = SN[areaTar][popTar][areaSrc][popSrc]
@@ -500,10 +541,10 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     ld_time = time_end - time_start
     print(f"{worker_id} build over")
     # 确保 log 目录存在并清空当前 worker 的 log 文件（truncate）
-    os.makedirs("log", exist_ok=True)
-    log_path = f"log/worker_{worker_id}.log"
+    os.makedirs(f"log_{model_name}", exist_ok=True)
+    log_path = f"log_{model_name}/worker_{worker_id}.log"
     open(log_path, "w").close()  # 以写模式打开并立即关闭以清空文件内容
-    with open(f"log/worker_{worker_id}.log", "a") as f:
+    with open(f"log_{model_name}/worker_{worker_id}.log", "a") as f:
         f.write(f"{total_neurons},"
                 f"{neuron_group},"
                 f"{total_synapses},"
@@ -513,7 +554,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     # 构建 spike_count_buffer 和 inSyn_buffer
     spike_count_buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array  = \
         build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list,
-                           all_area=all_area, pop_list=pop_list, gL=gL)
+                           all_area=all_area, pop_list=pop_list, gL=gL, scale_=float(args.scale) if "scale" in args else 1.0)
 
     cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
     inSyn_buffer = np.zeros(len(R_array), dtype=np.float32)
@@ -642,7 +683,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 f"{(t9-t0)*1000:.3f}"
             )
             if len(log_buffer) >= log_flush_interval:
-                with open(f"log/worker_{worker_id}.log", "a") as f:
+                with open(f"log_{model_name}/worker_{worker_id}.log", "a") as f:
                     f.write("\n".join(log_buffer) + "\n")
                 log_buffer.clear()
         else:
@@ -656,7 +697,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 f"{(t11-t10)*1000:.3f},"
             )
             if len(log_buffer) >= log_flush_interval:
-                with open(f"log/worker_{worker_id}.log", "a") as f:
+                with open(f"log_{model_name}/worker_{worker_id}.log", "a") as f:
                     f.write("\n".join(log_buffer) + "\n")
                 log_buffer.clear()
 
@@ -710,7 +751,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             break
         current_step += 1
     time_end = perf_counter()
-    with open(f"log/worker_{worker_id}.log", "a") as f:
+    with open(f"log_{model_name}/worker_{worker_id}.log", "a") as f:
         f.write(f"total_simulation_time,{(time_end - time_start)*1000:.2f} ms\n")
     # 仿真循环结束：一次性把 local_spike_history 发回主进程用于绘图（可能很大）
     final_msg = {"worker_id": worker_id, "final_spike_data": local_spike_history}
@@ -742,11 +783,16 @@ def merge_spike_data(spike_data_blocks):
 # 主程序入口
 # ===============================================================
 if __name__ == "__main__":
+    args = parse_all_args()
+    duration = int(args.duration)
+    duration_timesteps = duration / DT_MS
+    model_name = getModelName(args)
     num_gpus = 10      # 使用的 GPU 数量
     # procs_per_gpu = 1  # 每个 GPU 上的进程数
-    num_workers = 32   # 总进程数
+    num_workers = int(args.AreaNum)   # 总进程数
+    scale_ = float(args.scale) if "scale" in args else 1.0
     split_idx = split_indices(num_workers,num_workers)
-    NN, SN, weight, _, delayMap, area_list, pop_list, Ind = prepare()
+    NN, SN, weight, _, delayMap, area_list, pop_list, Ind = prepare(args)
     NeuronNumber = defaultdict(dict)
     for area in area_list:
         area_num = 0
@@ -775,7 +821,7 @@ if __name__ == "__main__":
                     args=(i,
                           gpu_id,
                           assigned_areas, area_list, pop_list,
-                          NN, SN, weight, delayMap, num_workers, Ind,
+                          NN, SN, weight, delayMap, num_workers, Ind, model_name, args,
                           to_master, from_master, done_queue, final_queue))
         p.start()
         processes.append(p)
@@ -810,7 +856,7 @@ if __name__ == "__main__":
                 f"{data_size/1024:.1f}"
             )
             if len(master_log_buffer) >= log_flush_interval:
-                with open(f"log/master.log", "a") as f:
+                with open(f"log_{model_name}/master.log", "a") as f:
                     f.write("\n".join(master_log_buffer) + "\n")
                 master_log_buffer.clear()
             per_worker_processed.append(msg["processed"]["spike_count"])
@@ -866,6 +912,6 @@ if __name__ == "__main__":
     for area, area_dict in final_spike_data.items():
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
-        save_spike(spike_data_temp)
+        save_spike(spike_data_temp, model_name)
         # visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
         #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)

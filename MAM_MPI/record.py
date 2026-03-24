@@ -8,9 +8,10 @@ def record_spike(neuron_population, spike_data):
             spike_times, spike_ids = p.spike_recording_data[0]
             spike_data[area][pop].append(np.column_stack((spike_times, spike_ids)))
 
-def save_spike(spike_data):
+def save_spike(spike_data, model_name):
+    os.makedirs(f"output/spike_{model_name}", exist_ok=True)
     for area, pop_dict in spike_data.items():
-        output_dir = f"output/spike/{area}"
+        output_dir = f"output/spike_{model_name}/{area}"
         os.makedirs(output_dir, exist_ok=True)
 
         # 清除该区域下所有旧的 .csv 文件

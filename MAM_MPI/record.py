@@ -9,9 +9,9 @@ def record_spike(neuron_population, spike_data):
             spike_data[area][pop].append(np.column_stack((spike_times, spike_ids)))
 
 def save_spike(spike_data, model_name):
-    os.makedirs(f"output/spike_{model_name}", exist_ok=True)
+    os.makedirs(f"output/spike/spike_{model_name}", exist_ok=True)
     for area, pop_dict in spike_data.items():
-        output_dir = f"output/spike_{model_name}/{area}"
+        output_dir = f"output/spike/spike_{model_name}/{area}"
         os.makedirs(output_dir, exist_ok=True)
 
         # 清除该区域下所有旧的 .csv 文件
@@ -35,18 +35,18 @@ def save_spike(spike_data, model_name):
             )
 
 
-def record_inSyn(out_post_history, record_I, synapse_populations, PopList):
-    for tar_area, tar_pop_list in record_I.items():
-        for tar_pop in tar_pop_list:
-            for src_pop in PopList:
-                if has_key_path(synapse_populations, tar_area, tar_pop, tar_area, src_pop):
-                    syn_pop=synapse_populations[tar_area][tar_pop][tar_area][src_pop]
-                    syn_pop.out_post.pull_from_device()
-                    out_post_array = syn_pop.out_post.view[:,:20]
-                    if isinstance(out_post_history[tar_area][tar_pop][tar_area][src_pop], dict):
-                        out_post_history[tar_area][tar_pop][tar_area][src_pop] = []
-                    out_post_history[tar_area][tar_pop][tar_area][src_pop].append(out_post_array.copy())
-
+def record_inSyn(out_post_history, area_list, synapse_populations, pop_list):
+    for tar_area in area_list:
+        for tar_pop in pop_list:
+            for src_area in area_list:
+                for src_pop in pop_list:
+                    if has_key_path(synapse_populations, tar_area, tar_pop, src_area, src_pop):
+                        syn_pop=synapse_populations[tar_area][tar_pop][src_area][src_pop]
+                        syn_pop.out_post.pull_from_device()
+                        out_post_array = syn_pop.out_post.view[:]
+                        if isinstance(out_post_history[tar_area][tar_pop][src_area][src_pop], dict):
+                            out_post_history[tar_area][tar_pop][src_area][src_pop] = []
+                        out_post_history[tar_area][tar_pop][src_area][src_pop].append(out_post_array.copy())
 def save_inSyn(out_post_history):
     for tar_area in out_post_history:
         for tar_pop in out_post_history[tar_area]:
@@ -64,4 +64,44 @@ def save_inSyn(out_post_history):
                     filename = f"{src_pop}_2_{tar_pop}.csv"
                     file_path = os.path.join(folder_path, filename)
 
-                    np.savetxt(file_path, all_data, delimiter=",", fmt="%.3f")
+                    # ✅ 改成追加写入
+                    with open(file_path, "a") as f:
+                        np.savetxt(f, all_data, delimiter=",", fmt=".6f")
+
+def save_volt(V_history):
+    for tar_area in V_history:
+        for tar_pop in V_history[tar_area]:
+            data = V_history[tar_area][tar_pop]
+
+            if not data:
+                continue  # 空数据跳过
+
+            all_data = np.vstack(data)  # 合并所有时间片
+            folder_path = os.path.join("output", "volt", tar_area)
+            os.makedirs(folder_path, exist_ok=True)
+
+            filename = f"{tar_pop}.csv"
+            file_path = os.path.join(folder_path, filename)
+
+            # ✅ 改成追加写入
+            with open(file_path, "a") as f:
+                np.savetxt(f, all_data, delimiter=",", fmt="%.3f")
+
+def save_cc_inSyn(cc_inSyn):
+    for tar_area in cc_inSyn:
+        for tar_pop in cc_inSyn[tar_area]:
+            data = cc_inSyn[tar_area][tar_pop]
+
+            if not data:
+                continue  # 空数据跳过
+
+            all_data = np.vstack(data)  # 合并所有时间片
+            folder_path = os.path.join("output", "inSyn", tar_area, tar_pop)
+            os.makedirs(folder_path, exist_ok=True)
+
+            filename = f"cc_inSyn.csv"
+            file_path = os.path.join(folder_path, filename)
+
+            # ✅ 改成追加写入
+            with open(file_path, "a") as f:
+                np.savetxt(f, all_data, delimiter=",", fmt=".6f")

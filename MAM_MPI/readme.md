@@ -1,8 +1,10 @@
 该项目为GeNN+MPI模拟猕猴大脑视觉皮层模型的源代码
 依赖软件包为pygenn、numba，pygenn的安装见https://github.com/genn-team/genn
 主体代码为CustomModel_MPI.py，将各项输入输出路径设置为自己的路径之后直接运行即可
-输出内容保存在output文件夹中
-需要通信时间，python CustomModel_MPI.py | tee output.txt即可保存命令行输出
+
+生成代码存储位置:GenCODE/...
+运行时间详细记录:log/...
+可视化结果:output/...
 
 config.py: 模型设置，包括一些基本的参数信息
 connectom.py: 绘制连接矩阵所用代码

@@ -19,7 +19,7 @@ from config import collection_params, vis_content, record_I
 from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type, getInd
 from visual import visualize, generate_unique_suffix
 from connectom import connectom
-from record import record_spike, save_spike, record_inSyn, save_inSyn
+from record import record_spike, save_spike, record_inSyn, save_inSyn, save_volt, save_cc_inSyn
 from multiprocessing import Process, Queue, Pipe
 from numba import njit, prange, cuda, int32, float32
 from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float32
@@ -127,8 +127,12 @@ def fast_update_inSyn_gpu(
     tid = cuda.threadIdx.x
     n_threads = cuda.blockDim.x
     gid = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+    shared_total_hits = cuda.shared.array(1, dtype=int32)
     if sc_idx >= spike_array.size:
         return
+    # debug 用：让第一个 block 的第一个线程在 inSyn_buffer[0] 写入一个特殊值，验证核函数是否被正确调用和执行
+    # if tid == 0:
+    #     inSyn_buffer[0] = 123.0
 
     sc = int32(spike_array[sc_idx])
     if sc <= 0:
@@ -165,36 +169,27 @@ def fast_update_inSyn_gpu(
     # 这里采用两种路径：
     # 1. 如果 n_trials 较小（<2048），则用 严谨的 Bernoulli 累加（每个线程负责部分实验，最后 block 内归约）
     # 2. 如果 n_trials 较大，则用 Poisson 近似（每个 block 只需一个线程生成总命中数）
+    shared_total_hits = cuda.shared.array(1, dtype=int32)
+
     if n_trials < 2048:
-        # 用 严谨 Bernoulli 累加（方案1）
-        # 每线程分摊 trials
         trials_per_thread = (n_trials + n_threads - 1) // n_threads
-        # 计算每线程的起始实验索引
         base = tid * trials_per_thread
 
         local_hits = int32(0)
-        # 计算每个 block 的 rng 段起始索引
-        rng_base = sc_idx * n_threads
 
-        # 每个线程负责 trials_per_thread 次实验
+        rng_idx = sc_idx * n_threads + tid  # ✅ 每线程独立 RNG
+
         for i in range(trials_per_thread):
             t = base + i
             if t < n_trials:
-                u = xoroshiro128p_uniform_float32(
-                    rng_states,
-                    rng_base + (t % n_threads)
-                )
+                u = xoroshiro128p_uniform_float32(rng_states, rng_idx)
                 if u < prob:
                     local_hits += 1
 
-        # block 归约，这里使用共享内存，block之间的共享内存是独立的
-        # 先把每个线程的 local_hits 写入 shared
-        # threads <=1024，所以可以直接静态分配
         shared_hits = cuda.shared.array(shape=1024, dtype=int32)
         shared_hits[tid] = local_hits
         cuda.syncthreads()
 
-        # 并行规约，一种常见的核函数写法，能够降低线程分化带来的影响
         stride = n_threads // 2
         while stride > 0:
             if tid < stride:
@@ -203,27 +198,28 @@ def fast_update_inSyn_gpu(
             stride //= 2
 
         if tid == 0:
-            total_hits = shared_hits[0]
+            shared_total_hits[0] = shared_hits[0]
+
     else:
-        # 用 Poisson 近似（方案2）
-        # 只需要一个线程生成 total_hits，目前主流的模拟框架都采用的是这种方案
-        if gid == 0:
-            # 计算 lambda
+        # ✅ 改成 tid == 0（不是 gid）
+        if tid == 0:
             lam = float32(sc * group_neu_count) * prob
 
-            # Knuth 算法（GPU 版 Poisson）
             L = math.exp(-lam)
             k = int32(0)
             p_acc = float32(1.0)
 
-            rng_base = sc_idx * n_threads + tid
+            rng_idx = sc_idx * n_threads + tid
 
             while p_acc > L:
                 k += 1
-                u = xoroshiro128p_uniform_float32(rng_states, rng_base)
+                u = xoroshiro128p_uniform_float32(rng_states, rng_idx)
                 p_acc *= u
 
-            total_hits = k - 1
+            shared_total_hits[0] = k - 1
+
+    cuda.syncthreads()
+    total_hits = shared_total_hits[0]
     if total_hits <= 0:
         return
     # 获取了总命中数量 total_hits 后，开始分配到各个 neuron 上
@@ -242,12 +238,12 @@ def fast_update_inSyn_gpu(
         # 为了分散 RNG 消耗，每个线程生成 hits_per_thread 个 hits
         hits_per_thread = (total_hits + n_threads - 1) // n_threads
         base = tid * hits_per_thread
-        rng_base = sc_idx * n_threads  # 区分每个 block 的 rng 段
+        rng_base = sc_idx * n_threads + tid  # 区分每个 block 的 rng 段
         for i in range(hits_per_thread):
             h = base + i
             if h < total_hits:
                 # 生成随机索引
-                u = xoroshiro128p_uniform_float32(rng_states, rng_base + (i % n_threads))
+                u = xoroshiro128p_uniform_float32(rng_states, rng_base)
                 post = int32(u * group_neu_count)
                 # 这里使用 shared 的 atomic（在 CUDA 中是快速的）
                 cuda.atomic.add(shared_bins, post, weight)
@@ -264,11 +260,11 @@ def fast_update_inSyn_gpu(
         # 直接全局原子操作版本
         hits_per_thread = (total_hits + n_threads - 1) // n_threads
         base = tid * hits_per_thread
-        rng_base = sc_idx * n_threads
+        rng_base = sc_idx * n_threads + tid
         for i in range(hits_per_thread):
             h = base + i
             if h < total_hits:
-                u = xoroshiro128p_uniform_float32(rng_states, rng_base + (i % n_threads))
+                u = xoroshiro128p_uniform_float32(rng_states, rng_base)
                 post = int32(u * group_neu_count)
                 cuda.atomic.add(inSyn_buffer, start_id + post, weight)
 
@@ -401,11 +397,17 @@ def getModelName(args):
 def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, Ind, model_name, args,
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
+    # if (gpu_id >= 1):
+    #     gpu_id = gpu_id + 1  # 跳过第2块GPU
+    gpu_id = gpu_id + 2
     model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
     if isinstance(area_list, str):
         area_list = [area_list]
     model.dt = 0.1                                                        # 设置时间步长为 0.1 ms
-    model.fuse_postsynaptic_models = True                                 # 开启后突触模型融合以提升性能
+    if "inSyn" in args:
+        model.fuse_postsynaptic_models = False
+    else:
+        model.fuse_postsynaptic_models = True                             # 开启后突触模型融合以提升性能
     model.default_narrow_sparse_ind_enabled = True                        # 开启窄稀疏连接以节省内存
     model.timing_enabled = True                                           # 开启时间测量以便性能分析
     model.default_var_location = VarLocation.HOST_DEVICE                  # 设置变量默认位置为主机和设备双端
@@ -458,14 +460,14 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             if pop_size > 0:
                 neuron_group += 1
                 neuron_pop = model.add_neuron_population(popName, pop_size, "LIF", params, lif_init)
-                # if has_key_path(stim_info, area, pop):
-                #     s=stim_info[area][pop]
-                #     model.add_current_source(area + pop + '_pulse',
-                #         trigger_pulse_model, neuron_pop,
-                #         {   "start_time":stim_start,
-                #             "end_time":stim_end,
-                #             "magnitude": s/1000.0},
-                # )
+                if area == 'V1' and pop == 'E23' and 'stim_start' in args and 'stim_end' in args:
+                    s=stim_info[area][pop]
+                    model.add_current_source(area + pop + '_pulse',
+                        trigger_pulse_model, neuron_pop,
+                        {   "start_time":args.stim_start,
+                            "end_time":args.stim_end,
+                            "magnitude": s/1000.0},
+                )
 
                 ext_weight = weight[area][pop]['external']['external']
                 rate = SN[area][pop]['external']['external'] / NN[area][pop] / 3000
@@ -486,6 +488,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
         for popTar, popSrc in product(pop_list, pop_list):
             if areaTar == areaSrc:
                 factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_[popTar][popSrc] > 0 else 1
+                # factor = 1.0
             else:
                 factor = float(args.scale) if "scale" in args else 1.0
             wAve = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 * factor
@@ -526,8 +529,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 if matrix_type=="PROCEDURAL":
                     syn_pop.num_threads_per_spike = NUM_THREADS_PER_SPIKE
                 synapse_populations[areaTar][popTar][areaSrc][popSrc] = syn_pop
-            else:
-                synapse_populations[areaTar][popTar][areaSrc][popSrc] = None
+            # else:
+                # synapse_populations[areaTar][popTar][areaSrc][popSrc] = None
         print("Total neurons=%u, total synapses=%u" % (total_neurons, total_synapses))
     # 代码生成阶段
     time_start = perf_counter()
@@ -541,10 +544,10 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     ld_time = time_end - time_start
     print(f"{worker_id} build over")
     # 确保 log 目录存在并清空当前 worker 的 log 文件（truncate）
-    os.makedirs(f"log_{model_name}", exist_ok=True)
-    log_path = f"log_{model_name}/worker_{worker_id}.log"
+    os.makedirs(f"log/log_{model_name}", exist_ok=True)
+    log_path = f"log/log_{model_name}/worker_{worker_id}.log"
     open(log_path, "w").close()  # 以写模式打开并立即关闭以清空文件内容
-    with open(f"log_{model_name}/worker_{worker_id}.log", "a") as f:
+    with open(f"log/log_{model_name}/worker_{worker_id}.log", "a") as f:
         f.write(f"{total_neurons},"
                 f"{neuron_group},"
                 f"{total_synapses},"
@@ -597,7 +600,12 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     log_buffer = []
     log_flush_interval = 500  # 每 100 步写一次
     time_start = perf_counter()
+    out_post_history = nested_dict()
+    VV_history = nested_dict()
+    cc_inSyn = nested_dict()
     while model.t < duration:
+        if model.t >= 20:
+            xxx = 1
         if spike_count_buffer:
             t0 = perf_counter()
             # 1) 读取：取 "当前步后 delay 步到达" 的槽
@@ -642,6 +650,9 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             model.step_time()
             t11 = perf_counter()
 
+            if "inSyn" in args:
+                record_inSyn(out_post_history, area_list, synapse_populations, pop_list)
+
             # 4) 衰减和计算 IR
             t5 = perf_counter()
             decay_gpu[blocks_per_grid, threads_per_block](d_inSyn, d_R, d_IR, model.dt)
@@ -662,12 +673,43 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                         array_V_tmp = neu_pop.vars["V"].current_view.copy()
                         array_tref_tmp = neu_pop.vars["RefracTime"].current_view.copy()
                         dv = IR[offset : offset + pop_size] * model.dt / neu_pop.params["TauM"].value
-                        dv[array_tref_tmp <= 0] = 0.0
+                        dv[array_tref_tmp > 0] = 0.0
                         array_V_tmp += dv
                         neu_pop.vars["V"].current_view[:] = array_V_tmp
+                        if "inSyn" in args:
+                            VV = array_V_tmp
+                            if isinstance(VV_history[area][pop], dict):
+                                VV_history[area][pop] = []
+                            VV_history[area][pop].append(VV)
+                            if isinstance(cc_inSyn[area][pop], dict):
+                                cc_inSyn[area][pop] = []
+                            cc_inSyn_temp = IR[offset : offset + pop_size]/R_array[offset : offset + pop_size]
+                            cc_inSyn[area][pop].append(cc_inSyn_temp)
                         neu_pop.vars["V"].push_to_device()
                         offset += pop_size
             t9 = perf_counter()
+
+            if model.timestep % 100 == 0 and "inSyn" in args:
+                if out_post_history:
+                    try:
+                        save_inSyn(out_post_history)
+                    except Exception as e:
+                        print(f"[Worker {worker_id}] save_inSyn error: {e}")
+                    out_post_history = nested_dict()
+
+                if VV_history:
+                    try:
+                        save_volt(VV_history)
+                    except Exception as e:
+                        print(f"[Worker {worker_id}] save_inSyn error: {e}")
+                    VV_history = nested_dict()
+
+                if cc_inSyn:
+                    try:
+                        save_cc_inSyn(cc_inSyn)
+                    except Exception as e:
+                        print(f"[Worker {worker_id}] save_inSyn error: {e}")
+                    cc_inSyn = nested_dict()
             # 子进程本地打印自己想要的时间统计（主进程不再收到这些字段）
             # print(f"[Worker {worker_id}] timestep={model.timestep} step_time={(t11-t10)*1000:.3f} ms "
             #       f"update_V={(t9-t6)*1000:.3f} ms update_inSyn={(t4-t3)*1000:.3f} ms "
@@ -683,7 +725,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 f"{(t9-t0)*1000:.3f}"
             )
             if len(log_buffer) >= log_flush_interval:
-                with open(f"log_{model_name}/worker_{worker_id}.log", "a") as f:
+                with open(f"log/log_{model_name}/worker_{worker_id}.log", "a") as f:
                     f.write("\n".join(log_buffer) + "\n")
                 log_buffer.clear()
         else:
@@ -697,7 +739,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 f"{(t11-t10)*1000:.3f},"
             )
             if len(log_buffer) >= log_flush_interval:
-                with open(f"log_{model_name}/worker_{worker_id}.log", "a") as f:
+                with open(f"log/log_{model_name}/worker_{worker_id}.log", "a") as f:
                     f.write("\n".join(log_buffer) + "\n")
                 log_buffer.clear()
 
@@ -751,7 +793,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             break
         current_step += 1
     time_end = perf_counter()
-    with open(f"log_{model_name}/worker_{worker_id}.log", "a") as f:
+    with open(f"log/log_{model_name}/worker_{worker_id}.log", "a") as f:
         f.write(f"total_simulation_time,{(time_end - time_start)*1000:.2f} ms\n")
     # 仿真循环结束：一次性把 local_spike_history 发回主进程用于绘图（可能很大）
     final_msg = {"worker_id": worker_id, "final_spike_data": local_spike_history}
@@ -787,7 +829,7 @@ if __name__ == "__main__":
     duration = int(args.duration)
     duration_timesteps = duration / DT_MS
     model_name = getModelName(args)
-    num_gpus = 10      # 使用的 GPU 数量
+    num_gpus = 8      # 使用的 GPU 数量
     # procs_per_gpu = 1  # 每个 GPU 上的进程数
     num_workers = int(args.AreaNum)   # 总进程数
     scale_ = float(args.scale) if "scale" in args else 1.0
@@ -856,7 +898,7 @@ if __name__ == "__main__":
                 f"{data_size/1024:.1f}"
             )
             if len(master_log_buffer) >= log_flush_interval:
-                with open(f"log_{model_name}/master.log", "a") as f:
+                with open(f"log/log_{model_name}/master.log", "a") as f:
                     f.write("\n".join(master_log_buffer) + "\n")
                 master_log_buffer.clear()
             per_worker_processed.append(msg["processed"]["spike_count"])
@@ -912,6 +954,6 @@ if __name__ == "__main__":
     for area, area_dict in final_spike_data.items():
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
-        save_spike(spike_data_temp, model_name)
-        # visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
-        #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+        # save_spike(spike_data_temp, model_name)
+        visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
+                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)

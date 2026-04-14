@@ -13,6 +13,7 @@ ARGS="$ARGS --buffer-size 100"
 ARGS="$ARGS --device $DEVICE"
 ARGS="$ARGS --poisson"
 ARGS="$ARGS --AreaNum $AreaNum"
+ARGS="$ARGS --inSyn"
 # ARGS = "$ARGS --AreaIdx 0"
 # ARGS = "$ARGS --SPARSE"
 for i in {1..1}; do

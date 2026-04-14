@@ -40,9 +40,9 @@ specific_scale_syn = """
 """
 
 stim = {
-    # 'V1': {
-    #     'E4': 10.,
-    # }
+    'V1': {
+        'E23': 100.,
+    }
 }
 
 record_I = {

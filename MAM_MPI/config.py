@@ -41,7 +41,7 @@ specific_scale_syn = """
 
 stim = {
     'V1': {
-        'E23': 100.,
+        'E23': 500.,
     }
 }
 

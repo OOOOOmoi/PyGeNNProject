@@ -19,10 +19,10 @@ from config import collection_params, vis_content, record_I
 from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type, getInd
 from visual import visualize, generate_unique_suffix
 from connectom import connectom
-from record import record_spike, save_spike, record_inSyn, save_inSyn, save_volt, save_cc_inSyn
+from record import record_spike, save_spike, record_inSyn, save_inSyn, save_volt, save_cc_inSyn, archive_and_clear
 from multiprocessing import Process, Queue, Pipe
 from numba import njit, prange, cuda, int32, float32
-from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float32
+from numba.cuda.random import create_xoroshiro128p_states, xoroshiro128p_uniform_float32, xoroshiro128p_normal_float32
 import math
 DT_MS=0.1
 NUM_THREADS_PER_SPIKE = 1
@@ -246,7 +246,10 @@ def fast_update_inSyn_gpu(
                 u = xoroshiro128p_uniform_float32(rng_states, rng_base)
                 post = int32(u * group_neu_count)
                 # 这里使用 shared 的 atomic（在 CUDA 中是快速的）
-                cuda.atomic.add(shared_bins, post, weight)
+                normal = xoroshiro128p_normal_float32(rng_states, rng_base)
+                rand_weight = weight + (0.1 * weight) * normal
+                rand_weight = max(rand_weight, 0.0)
+                cuda.atomic.add(shared_bins, post, rand_weight)
 
         cuda.syncthreads()
         # block 内一个线程把 shared_bins 写回全局（按段写回以降低全局冲突）
@@ -266,7 +269,10 @@ def fast_update_inSyn_gpu(
             if h < total_hits:
                 u = xoroshiro128p_uniform_float32(rng_states, rng_base)
                 post = int32(u * group_neu_count)
-                cuda.atomic.add(inSyn_buffer, start_id + post, weight)
+                normal = xoroshiro128p_normal_float32(rng_states, rng_idx)
+                rand_weight = weight + (0.1 * weight) * normal
+                rand_weight = max(rand_weight, 0.0)
+                cuda.atomic.add(inSyn_buffer, start_id + post, rand_weight)
 
 # ===============================================================
 # 衰减 inSyn 并计算 IR 的函数（Numba CUDA 版）
@@ -278,12 +284,10 @@ def fast_update_inSyn_gpu(
 # IR: numba.cuda.device_array of shape (n_neurons,), 存储每个神经元的 IR 值，用于后续的膜电位更新
 # ===============================================================
 @cuda.jit
-def decay_gpu(inSyn, R, IR, dt):
+def decay_gpu(inSyn, dt):
     i = cuda.grid(1)
     if i < inSyn.size:
-        inSyn[i] *= math.exp(-dt / 4)
-        IR[i] = inSyn[i] * R[i]
-        inSyn[i] *= math.exp(-dt / 2)
+        inSyn[i] *= math.exp(-dt / 0.5)
 
 # ===============================================================
 # 获取神经元变量数组函数，主要是当前时刻的膜电位和不应期
@@ -398,8 +402,10 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
     # if (gpu_id >= 1):
-    #     gpu_id = gpu_id + 1  # 跳过第2块GPU
-    gpu_id = gpu_id + 2
+        # gpu_id = gpu_id + 1  # 跳过第2块GPU
+    # elif (gpu_id >= 5):
+    #     gpu_id = gpu_id + 1  # 跳过第6块GPU
+    gpu_id = gpu_id + 6
     model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
     if isinstance(area_list, str):
         area_list = [area_list]
@@ -561,6 +567,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
 
     cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
     inSyn_buffer = np.zeros(len(R_array), dtype=np.float32)
+    inSyn_buffer_temp = np.zeros_like(inSyn_buffer)  # 用于从 GPU 拷贝回来的临时缓冲区
     cuda.select_device(gpu_id)
 
     # numba.cuda 相关准备——————————————————————————————————————————————————————————————————————————————————————
@@ -642,6 +649,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 rng_states
             )
             cuda.synchronize()
+            d_inSyn.copy_to_host(inSyn_buffer_temp)
+            inSyn_buffer += inSyn_buffer_temp * math.exp(-model.dt/1)  # 累加到主机端的 inSyn_buffer
             t4 = perf_counter()
 
             # 3) 拉取神经元变量并更新膜电位（尽量减少拷贝）
@@ -653,14 +662,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             if "inSyn" in args:
                 record_inSyn(out_post_history, area_list, synapse_populations, pop_list)
 
-            # 4) 衰减和计算 IR
-            t5 = perf_counter()
-            decay_gpu[blocks_per_grid, threads_per_block](d_inSyn, d_R, d_IR, model.dt)
-            cuda.synchronize()
-            d_IR.copy_to_host(IR)
-            t6 = perf_counter()
 
-            # 5) 将 IR 应用到各 population（注意 slice 的 offset 必须与 build_spike_buffer 中的 group 划分一致）
+            # 4) 将 IR 应用到各 population（注意 slice 的 offset 必须与 build_spike_buffer 中的 group 划分一致）
             offset = 0
             for area in neuron_populations.keys():
                 for pop in neuron_populations[area].keys():
@@ -672,7 +675,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                         pop_size = neu_pop.num_neurons
                         array_V_tmp = neu_pop.vars["V"].current_view.copy()
                         array_tref_tmp = neu_pop.vars["RefracTime"].current_view.copy()
-                        dv = IR[offset : offset + pop_size] * model.dt / neu_pop.params["TauM"].value
+                        dv = inSyn_buffer[offset : offset + pop_size] * R_array[offset : offset + pop_size] * model.dt / neu_pop.params["TauM"].value
                         dv[array_tref_tmp > 0] = 0.0
                         array_V_tmp += dv
                         neu_pop.vars["V"].current_view[:] = array_V_tmp
@@ -683,11 +686,21 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                             VV_history[area][pop].append(VV)
                             if isinstance(cc_inSyn[area][pop], dict):
                                 cc_inSyn[area][pop] = []
-                            cc_inSyn_temp = IR[offset : offset + pop_size]/R_array[offset : offset + pop_size]
+                            cc_inSyn_temp = inSyn_buffer[offset : offset + pop_size]
                             cc_inSyn[area][pop].append(cc_inSyn_temp)
                         neu_pop.vars["V"].push_to_device()
                         offset += pop_size
             t9 = perf_counter()
+
+            # 5) 衰减
+            t5 = perf_counter()
+            # d_inSyn.copy_to_device(inSyn_buffer)  # 把更新后的 inSyn_buffer 传回 GPU
+            # decay_gpu[blocks_per_grid, threads_per_block](d_inSyn, model.dt)
+            # d_inSyn.copy_to_host(inSyn_buffer)  # 把衰减后的 inSyn_buffer 拷贝回主机
+            inSyn_buffer = inSyn_buffer * math.exp(-model.dt/0.5)  # CPU 端衰减
+            d_inSyn.copy_to_device(np.zeros_like(inSyn_buffer_temp))  # GPU 端清零以准备下一步更新
+            cuda.synchronize()
+            t6 = perf_counter()
 
             if model.timestep % 100 == 0 and "inSyn" in args:
                 if out_post_history:
@@ -710,6 +723,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                     except Exception as e:
                         print(f"[Worker {worker_id}] save_inSyn error: {e}")
                     cc_inSyn = nested_dict()
+
+
             # 子进程本地打印自己想要的时间统计（主进程不再收到这些字段）
             # print(f"[Worker {worker_id}] timestep={model.timestep} step_time={(t11-t10)*1000:.3f} ms "
             #       f"update_V={(t9-t6)*1000:.3f} ms update_inSyn={(t4-t3)*1000:.3f} ms "
@@ -718,7 +733,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             log_buffer.append(
                 f"{model.timestep},"
                 f"{(t11-t10)*1000:.3f},"
-                f"{(t9-t6)*1000:.3f},"
+                f"{(t9-t11)*1000:.3f},"
                 f"{(t4-t3)*1000:.3f},"
                 f"{(t6-t5)*1000:.3f},"
                 f"{(t2-t0)*1000:.3f},"
@@ -732,6 +747,44 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             t10 = perf_counter()
             model.step_time()
             t11 = perf_counter()
+            offset = 0
+            if "inSyn" in args:
+                for area in neuron_populations.keys():
+                    for pop in neuron_populations[area].keys():
+                        if (area, pop) in tar_key_set:
+                            neu_pop = neuron_populations[area][pop]
+                            neu_pop.vars["V"].pull_from_device()
+                            pop_size = neu_pop.num_neurons
+                            array_V_tmp = neu_pop.vars["V"].current_view.copy()
+                            if "inSyn" in args:
+                                VV = array_V_tmp
+                                if isinstance(VV_history[area][pop], dict):
+                                    VV_history[area][pop] = []
+                                VV_history[area][pop].append(VV)
+                            offset += pop_size
+
+            if model.timestep % 100 == 0 and "inSyn" in args:
+                if out_post_history:
+                    try:
+                        save_inSyn(out_post_history)
+                    except Exception as e:
+                        print(f"[Worker {worker_id}] save_inSyn error: {e}")
+                    out_post_history = nested_dict()
+
+                if VV_history:
+                    try:
+                        save_volt(VV_history)
+                    except Exception as e:
+                        print(f"[Worker {worker_id}] save_inSyn error: {e}")
+                    VV_history = nested_dict()
+
+                if cc_inSyn:
+                    try:
+                        save_cc_inSyn(cc_inSyn)
+                    except Exception as e:
+                        print(f"[Worker {worker_id}] save_inSyn error: {e}")
+                    cc_inSyn = nested_dict()
+
             # 子进程本地打印自己想要的时间统计（主进程不再收到这些字段）
             # print(f"[Worker {worker_id}] timestep={model.timestep} step_time={(t11-t10)*1000:.3f} ms ")
             log_buffer.append(
@@ -829,7 +882,7 @@ if __name__ == "__main__":
     duration = int(args.duration)
     duration_timesteps = duration / DT_MS
     model_name = getModelName(args)
-    num_gpus = 8      # 使用的 GPU 数量
+    num_gpus = 4      # 使用的 GPU 数量
     # procs_per_gpu = 1  # 每个 GPU 上的进程数
     num_workers = int(args.AreaNum)   # 总进程数
     scale_ = float(args.scale) if "scale" in args else 1.0
@@ -924,6 +977,9 @@ if __name__ == "__main__":
 
         step += 1
 
+        if step % 100 == 0 and "inSyn" in args:
+            archive_and_clear(step / 10)
+
     # ---- 仿真完成，发送 stop ----
     for q in from_master_queues:
         q.put({"type": "stop"})
@@ -955,5 +1011,5 @@ if __name__ == "__main__":
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
         # save_spike(spike_data_temp, model_name)
-        visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
-                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+        # visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
+        #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)

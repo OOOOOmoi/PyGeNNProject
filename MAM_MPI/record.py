@@ -2,6 +2,7 @@ import os
 import glob
 import numpy as np
 from getStruct import has_key_path
+import shutil
 def record_spike(neuron_population, spike_data):
     for area, pop_dict in neuron_population.items():
         for pop, p in pop_dict.items():
@@ -66,7 +67,7 @@ def save_inSyn(out_post_history):
 
                     # ✅ 改成追加写入
                     with open(file_path, "a") as f:
-                        np.savetxt(f, all_data, delimiter=",", fmt=".6f")
+                        np.savetxt(f, all_data, delimiter=",", fmt="%.6f")
 
 def save_volt(V_history):
     for tar_area in V_history:
@@ -104,4 +105,19 @@ def save_cc_inSyn(cc_inSyn):
 
             # ✅ 改成追加写入
             with open(file_path, "a") as f:
-                np.savetxt(f, all_data, delimiter=",", fmt=".6f")
+                np.savetxt(f, all_data, delimiter=",", fmt="%.6f")
+
+
+def archive_and_clear(time):
+    src_volt = "output/volt"
+    src_inSyn = "output/inSyn"
+
+    # 目标目录（按 timestep 命名）
+    dst_root = f"data_4.5T/{time-10}-{time}ms"
+
+    # 创建目录
+    os.makedirs(dst_root, exist_ok=True)
+
+    # 直接移动整个文件夹
+    shutil.move(src_volt, dst_root)
+    shutil.move(src_inSyn, dst_root)

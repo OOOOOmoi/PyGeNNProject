@@ -24,7 +24,7 @@
 | `potjansModel/` | Potjans-Diesmann 2014 皮层微电路复现 |
 | `SchmidtModel/` | Schmidt 猕猴视觉皮层微电路模型 |
 | `CustomModel/` | 自定义全皮层连接模型（支持 32 脑区） |
-| `HMAM/` | 层次化多脑区模型（Hierarchical Multi-Area Model） |
+| `HMAM/` | 人脑多脑区模型（Human Multi-Area Model） |
 | `HMAM_MPI/` | HMAM 的 MPI 分布式多机版本 |
 | `MAM_MPI/` | **主干模型**：多脑区 MPI 并行模型（32 脑区，多 GPU 多进程） |
 | `ScalingTest/` | 模型规模可扩展性测试 |

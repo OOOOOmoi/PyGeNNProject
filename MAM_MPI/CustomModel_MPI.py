@@ -401,11 +401,11 @@ def getModelName(args):
 def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, Ind, model_name, args,
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
-    # if (gpu_id >= 1):
-        # gpu_id = gpu_id + 1  # 跳过第2块GPU
+    if (gpu_id >= 1):
+        gpu_id = gpu_id + 1  # 跳过第2块GPU
     # elif (gpu_id >= 5):
     #     gpu_id = gpu_id + 1  # 跳过第6块GPU
-    gpu_id = gpu_id + 6
+    # gpu_id = gpu_id + 6
     model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
     if isinstance(area_list, str):
         area_list = [area_list]
@@ -659,7 +659,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             model.step_time()
             t11 = perf_counter()
 
-            if "inSyn" in args:
+            if "inSyn" in args and model.t > 700.0:
                 record_inSyn(out_post_history, area_list, synapse_populations, pop_list)
 
 
@@ -679,7 +679,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                         dv[array_tref_tmp > 0] = 0.0
                         array_V_tmp += dv
                         neu_pop.vars["V"].current_view[:] = array_V_tmp
-                        if "inSyn" in args:
+                        if "inSyn" in args and model.t > 700.0:
                             VV = array_V_tmp
                             if isinstance(VV_history[area][pop], dict):
                                 VV_history[area][pop] = []
@@ -702,7 +702,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             cuda.synchronize()
             t6 = perf_counter()
 
-            if model.timestep % 100 == 0 and "inSyn" in args:
+            if model.timestep % 100 == 0 and "inSyn" in args and model.t > 700.0:
                 if out_post_history:
                     try:
                         save_inSyn(out_post_history)
@@ -748,7 +748,7 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             model.step_time()
             t11 = perf_counter()
             offset = 0
-            if "inSyn" in args:
+            if "inSyn" in args and model.t > 700.0:
                 for area in neuron_populations.keys():
                     for pop in neuron_populations[area].keys():
                         if (area, pop) in tar_key_set:
@@ -756,14 +756,14 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                             neu_pop.vars["V"].pull_from_device()
                             pop_size = neu_pop.num_neurons
                             array_V_tmp = neu_pop.vars["V"].current_view.copy()
-                            if "inSyn" in args:
+                            if "inSyn" in args and model.t > 700.0:
                                 VV = array_V_tmp
                                 if isinstance(VV_history[area][pop], dict):
                                     VV_history[area][pop] = []
                                 VV_history[area][pop].append(VV)
                             offset += pop_size
 
-            if model.timestep % 100 == 0 and "inSyn" in args:
+            if model.timestep % 100 == 0 and "inSyn" in args and model.t > 700.0:
                 if out_post_history:
                     try:
                         save_inSyn(out_post_history)
@@ -882,7 +882,7 @@ if __name__ == "__main__":
     duration = int(args.duration)
     duration_timesteps = duration / DT_MS
     model_name = getModelName(args)
-    num_gpus = 4      # 使用的 GPU 数量
+    num_gpus = 8      # 使用的 GPU 数量
     # procs_per_gpu = 1  # 每个 GPU 上的进程数
     num_workers = int(args.AreaNum)   # 总进程数
     scale_ = float(args.scale) if "scale" in args else 1.0
@@ -977,7 +977,7 @@ if __name__ == "__main__":
 
         step += 1
 
-        if step % 100 == 0 and "inSyn" in args:
+        if step % 100 == 0 and "inSyn" in args and step > 7000:
             archive_and_clear(step / 10)
 
     # ---- 仿真完成，发送 stop ----
@@ -1011,5 +1011,5 @@ if __name__ == "__main__":
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
         # save_spike(spike_data_temp, model_name)
-        # visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
-        #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+        visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
+                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)

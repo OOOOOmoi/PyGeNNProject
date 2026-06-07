@@ -380,6 +380,8 @@ def getModelName(args):
         model_name += f"_surface{args.surface}"
     if ("scale" in args):
         model_name += f"_scale{args.scale}"
+    if ("gpu_ids" in args):
+        model_name += f"_GPU{len(args.gpu_ids)}"
     return model_name
 
 # ===============================================================

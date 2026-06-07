@@ -348,6 +348,8 @@ def get_parser():
     parser.add_argument("--buffer", action="store_true", help="Whether use buffer store spike")
     parser.add_argument("--buffer-size", type=int, default=100, nargs="?", help="Size of recording buffer")
     parser.add_argument("--save-spike", action="store_true", help="whether store spike")
+    parser.add_argument("--gpu-ids", type=int, nargs="*", default=list(range(8)),
+                        help="GPU IDs to use, e.g. --gpu-ids 0 2 3 4 5 6 7 (default: 0..7)")
     return parser
 
 def parse_all_args():
@@ -401,11 +403,6 @@ def getModelName(args):
 def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, Ind, model_name, args,
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
-    if (gpu_id >= 1):
-        gpu_id = gpu_id + 1  # 跳过第2块GPU
-    # elif (gpu_id >= 5):
-    #     gpu_id = gpu_id + 1  # 跳过第6块GPU
-    # gpu_id = gpu_id + 6
     model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
     if isinstance(area_list, str):
         area_list = [area_list]
@@ -882,8 +879,6 @@ if __name__ == "__main__":
     duration = int(args.duration)
     duration_timesteps = duration / DT_MS
     model_name = getModelName(args)
-    num_gpus = 8      # 使用的 GPU 数量
-    # procs_per_gpu = 1  # 每个 GPU 上的进程数
     num_workers = int(args.AreaNum)   # 总进程数
     scale_ = float(args.scale) if "scale" in args else 1.0
     split_idx = split_indices(num_workers,num_workers)
@@ -910,7 +905,7 @@ if __name__ == "__main__":
         from_master = Queue()
         to_master_queues.append(to_master)
         from_master_queues.append(from_master)
-        gpu_id = i % num_gpus
+        gpu_id = args.gpu_ids[i % len(args.gpu_ids)]
         assigned_areas = [area_list[j-1] for j in split_idx[i]]
         p = Process(target=Part,
                     args=(i,

@@ -4,4 +4,4 @@
 *_CODE/
 *.out
 *.log
-data_4.5T/
+data_4.5T/*.tar.gz

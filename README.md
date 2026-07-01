@@ -1,67 +1,67 @@
-# PyGeNNProject — 猕猴视觉皮层大规模脉冲神经网络仿真平台
+# PyGeNNProject — Macaque Visual Cortex Large-Scale Spiking Neural Network Simulation Platform
 
-基于 **PyGeNN**（GPU-enhanced Neural Networks）+ **Numba CUDA** + **多进程/MPI 并行** 的大规模脉冲神经网络（Spiking Neural Network）仿真平台，用于模拟猕猴（Macaque）大脑视觉皮层的神经元群体活动。
+A large-scale Spiking Neural Network (SNN) simulation platform based on **PyGeNN** (GPU-enhanced Neural Networks) + **Numba CUDA** + **multiprocessing/MPI parallelism**, designed for simulating neuronal population activity in the macaque visual cortex.
 
 ---
 
-## 项目概述
+## Overview
 
-本项目构建了从单神经元、单皮层柱到多脑区全视觉皮层的大规模 SNN 模型，涵盖 32 个视觉皮层区域，支持多 GPU 并行加速。模型基于 Schmidt 等人的猕猴视觉皮层微电路框架，并通过 PyGeNN 实现高效的 GPU 仿真。
+This project constructs large-scale SNN models ranging from single neurons and single cortical columns to multi-area full visual cortex, covering 32 visual cortical areas with multi-GPU parallel acceleration. The models are based on the macaque visual cortex microcircuit framework by Schmidt et al. and implemented via PyGeNN for efficient GPU simulation.
 
-## 模型目录
+## Model Directory
 
-| 目录 | 说明 |
-|------|------|
-| `SingleNeuron/` | 单神经元 LIF 模型测试 |
-| `expLIF/` | Exponential LIF 神经元模型定义（带自适应指数） |
-| `DualEXP/` | 双指数突触（Dual Exponential Synapse）模型 |
-| `IzhkNeuron/` | Izhikevich 神经元模型实现 |
-| `EIBalance/` | 兴奋-抑制平衡网络模型 |
-| `SingleColumn/` | 单皮层柱模型（Potjans-Diesmann 风格，16 种神经元群体） |
-| `DoubleColumn/` | 双皮层柱互连模型 |
-| `MultiColumn/` | 多皮层柱扩展模型 |
-| `MultiLayer/` | 多层网络模型 |
-| `potjansModel/` | Potjans-Diesmann 2014 皮层微电路复现 |
-| `SchmidtModel/` | Schmidt 猕猴视觉皮层微电路模型 |
-| `CustomModel/` | 自定义全皮层连接模型（支持 32 脑区） |
-| `HMAM/` | 人脑多脑区模型（Human Multi-Area Model） |
-| `HMAM_MPI/` | HMAM 的 MPI 分布式多机版本 |
-| `MAM_MPI/` | **主干模型**：多脑区 MPI 并行模型（32 脑区，多 GPU 多进程） |
-| `ScalingTest/` | 模型规模可扩展性测试 |
-| `ProjectOfStimExcNeuronInFirstArea/` | 第一脑区兴奋性神经元刺激实验 |
-| `model_info_schmidt_motif_diff_s/` | Schmidt motif 模型的连接数据文件 |
+| Directory | Description |
+|-----------|-------------|
+| `SingleNeuron/` | Single-neuron LIF model tests |
+| `expLIF/` | Exponential LIF neuron model definition (with adaptive exponential) |
+| `DualEXP/` | Dual Exponential Synapse model |
+| `IzhkNeuron/` | Izhikevich neuron model implementation |
+| `EIBalance/` | Excitatory-inhibitory balanced network model |
+| `SingleColumn/` | Single cortical column model (Potjans-Diesmann style, 16 neuron populations) |
+| `DoubleColumn/` | Dual cortical column interconnection model |
+| `MultiColumn/` | Multi-column extension model |
+| `MultiLayer/` | Multi-layer network model |
+| `potjansModel/` | Potjans-Diesmann 2014 cortical microcircuit reproduction |
+| `SchmidtModel/` | Schmidt macaque visual cortex microcircuit model |
+| `CustomModel/` | Custom full-cortex connectivity model (supports 32 brain areas) |
+| `HMAM/` | Human Multi-Area Model |
+| `HMAM_MPI/` | MPI distributed multi-node version of HMAM |
+| `MAM_MPI/` | **Main model**: Multi-Area MPI parallel model (32 areas, multi-GPU multi-process) |
+| `ScalingTest/` | Model scalability tests |
+| `ProjectOfStimExcNeuronInFirstArea/` | Stimulation experiment on excitatory neurons in the first area |
+| `model_info_schmidt_motif_diff_s/` | Connectivity data files for Schmidt motif model |
 
-## 技术栈
+## Technology Stack
 
-| 层级 | 技术 |
-|------|------|
-| 神经元模型 | LIF / Exponential LIF / Izhikevich |
-| 突触模型 | ExpCurr（指数衰减电流）/ Dual Exponential |
-| GPU 加速 | PyGeNN + Numba CUDA（自定义核函数） |
-| 并行框架 | Python `multiprocessing`（多 GPU）+ MPI（多机） |
-| 数据处理 | NumPy, SciPy, Pandas |
-| 可视化 | Matplotlib, Seaborn |
-| 构建系统 | setuptools |
+| Layer | Technology |
+|-------|------------|
+| Neuron Models | LIF / Exponential LIF / Izhikevich |
+| Synapse Models | ExpCurr (exponential decay current) / Dual Exponential |
+| GPU Acceleration | PyGeNN + Numba CUDA (custom kernels) |
+| Parallel Frameworks | Python `multiprocessing` (multi-GPU) + MPI (multi-node) |
+| Data Processing | NumPy, SciPy, Pandas |
+| Visualization | Matplotlib, Seaborn |
+| Build System | setuptools |
 
-## 主干模型：MAM_MPI
+## Main Model: MAM_MPI
 
-MAM_MPI 是本项目最完整的仿真模型，模拟 **32 个猕猴视觉皮层区域**（V1, V2, V3, V4, MT, MSTd, LIP, FEF, 7a, 46, AITd 等），每个区域包含 5 个皮层层次和 4–5 种神经元亚型。
+MAM_MPI is the most comprehensive simulation model in this project, simulating **32 macaque visual cortical areas** (V1, V2, V3, V4, MT, MSTd, LIP, FEF, 7a, 46, AITd, etc.), with each area containing 5 cortical layers and 4–5 neuron subtypes.
 
 ```bash
-# 基本运行
+# Basic run
 python MAM_MPI/CustomModel_MPI.py --duration 1000 --AreaNum 32 --scale 1.0
 
-# 带刺激运行
+# Run with stimulation
 python MAM_MPI/CustomModel_MPI.py --duration 1000 --AreaNum 32 --scale 1.0 --stim --stim-start 300 --stim-end 800
 ```
 
-详见 `MAM_MPI/readme.md`。
+See `MAM_MPI/readme.md` for details.
 
-## 依赖
+## Dependencies
 
 - Python 3.8+
-- [PyGeNN](https://github.com/genn-team/genn)（GPU SNN 仿真框架）
-- Numba（CUDA JIT 编译）
+- [PyGeNN](https://github.com/genn-team/genn) (GPU SNN simulation framework)
+- Numba (CUDA JIT compilation)
 - NumPy, SciPy, Pandas, Matplotlib
 - `nested_dict`, `pynvml`
 
@@ -69,7 +69,7 @@ python MAM_MPI/CustomModel_MPI.py --duration 1000 --AreaNum 32 --scale 1.0 --sti
 pip install pandas matplotlib scipy seaborn numba nested_dict pynvml
 ```
 
-## 安装
+## Installation
 
 ```bash
 git clone git@github.com:OOOOOmoi/PyGeNNProject.git
@@ -77,15 +77,15 @@ cd PyGeNNProject
 pip install -e .
 ```
 
-## 数据文件
+## Data Files
 
-- `custom_Data_Model_3396.json` — 32 脑区完整连接参数（3396 mm² 皮层表面积）
-- `default_Data_Model__*.json` — 不同皮层表面积（50/70/100 mm²）的模型参数
-- `indegrees_full.json` / `outdegrees_full.json` — 全脑出入度数据
-- `viscortex_raw_data.json` — 视觉皮层原始连接数据
-- `Fac_result.json` — 促进因子结果
+- `custom_Data_Model_3396.json` — Complete connection parameters for 32 brain areas (3396 mm² cortical surface area)
+- `default_Data_Model__*.json` — Model parameters for different cortical surface areas (50/70/100 mm²)
+- `indegrees_full.json` / `outdegrees_full.json` — Whole-brain in-degree and out-degree data
+- `viscortex_raw_data.json` — Visual cortex raw connectivity data
+- `Fac_result.json` — Facilitation factor results
 
-## 参考文献
+## References
 
 - Schmidt et al., "A multi-scale layer-resolved spiking network model of resting-state dynamics in macaque visual cortical areas", *PLOS Computational Biology*, 2018.
 - Potjans & Diesmann, "The cell-type specific cortical microcircuit: relating structure and activity in a full-scale spiking network model", *Cerebral Cortex*, 2014.

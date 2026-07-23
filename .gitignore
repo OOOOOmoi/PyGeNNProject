@@ -4,4 +4,7 @@
 *_CODE/
 *.out
 *.log
-data_4.5T/*.tar.gz
+data_4.5T/
+*.tar.gz
+__pycache__/
+*.pyc

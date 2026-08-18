@@ -9,8 +9,9 @@ export CUDA_HOME=/home/yangjinhao/CUDA/cuda-12.0
 
 COH=${1:-51.2}
 SEED=${2:-4}
-NW=${3:-4}
+NW=${3:-2}
 BS=${4:-20}
+GPU_IDS=${5:-"0 1"}   # 只用空闲的 0,1 号 GPU
 
 cd "$(dirname "$0")"
 mkdir -p GenCODE output log
@@ -21,6 +22,6 @@ python3 wang2002_mpi.py \
     --coh ${COH} \
     --seed ${SEED} \
     --num-workers ${NW} \
-    --gpu-ids 0 1 2 3 \
+    --gpu-ids ${GPU_IDS} \
     --batch-steps ${BS}
 echo "===== DONE | $(date) ====="

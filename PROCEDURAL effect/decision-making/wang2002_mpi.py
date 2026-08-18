@@ -249,73 +249,91 @@ def split_areas(area_list, num_workers):
 
 class PopulationTraces:
     """
-    维护群体级突触迹求和，用批量脉冲计数驱动。
+    群体级突触迹, 用逐神经元平均场维护, 由批量脉冲计数驱动。
 
-    数学等价性 (批量近似):
-      Σ_neurons sAMPA_neuron(t) ≈ exp(-batch_dt/tau) * Σ_prev + batch_spike_count
+    与原版 (wang2002_pygenn.py) 的数学对应:
+      原版在 GPU 上逐神经元逐步更新:
+        sAMPA += -sAMPA/tauAMPA*dt  (+1 on spike)
+        x_nmda += -x_nmda/tauX*dt   (+1 on spike)
+        sNMDA  += (-sNMDA/tauNMDA + alpha*x_nmda*(1-sNMDA))*dt   <-- 非线性饱和!
+        sGABA  += -sGABA/tauGABA*dt (+1 on spike)
+      host 端按子群求和后乘 W 矩阵得 S_*。
 
-    对于 NMDA (小 sNMDA 近似):
-      x_nmda_sum(t) = exp(-batch_dt/tau_x) * x_nmda_sum_prev + batch_spike_count
-      sNMDA_sum(t) = sNMDA_sum_prev * (1 - batch_dt/tauNMDA) + alpha * batch_dt * x_nmda_sum(t)
+    本类以"逐神经元平均值"为状态量 (sum/N_j), 使非线性饱和项可直接作用;
+      compute_S 时再乘回 N_j 得到群体和, 与原版 S_* 定义一致。
+
+    批内近似修正: 脉冲在批内均匀到达, 到批末平均剩余比例为
+      f(tau) = (1-exp(-d/tau))/(d/tau), d=batch_dt
     """
 
-    def __init__(self, params):
+    def __init__(self, params, N0, N1, N2, N_I):
         self.tauAMPA = params["tauAMPA"]
         self.tau_x = params["tau_x"]
         self.tauNMDA = params["tauNMDA"]
         self.alpha = params["alpha"]
         self.tauGABA = params["tauGABA"]
 
-        # 3 个 E 子群的迹
-        self.sAMPA = np.zeros(3, dtype=np.float64)  # E0, E1, E2
-        self.x_nmda = np.zeros(3, dtype=np.float64)
-        self.sNMDA = np.zeros(3, dtype=np.float64)
-        # I 的迹
-        self.sGABA = 0.0
+        self.N_E_sub = np.array([N0, N1, N2], dtype=np.float64)
+        self.N_I = float(N_I)
+
+        # E 子群逐神经元平均迹 (E0, E1, E2)
+        self.sAMPA_avg = np.zeros(3, dtype=np.float64)
+        self.x_nmda_avg = np.zeros(3, dtype=np.float64)
+        self.sNMDA_avg = np.zeros(3, dtype=np.float64)
+        # I 群逐神经元平均迹
+        self.sGABA_avg = 0.0
+
+    @staticmethod
+    def _spike_frac(batch_dt, tau):
+        """批内均匀到达的脉冲到批末的平均剩余比例 (对线性迹的增量修正)。"""
+        x = batch_dt / tau
+        if x < 1e-9:
+            return 1.0
+        return (1.0 - math.exp(-x)) / x
 
     def update(self, spike_counts_E, spike_count_I, batch_dt):
         """
-        用当前批量脉冲计数更新迹求和。
-
         Parameters
         ----------
-        spike_counts_E : array-like of 3 ints
-            E0, E1, E2 各自的批量脉冲计数
-        spike_count_I : int
-            I 的批量脉冲计数
-        batch_dt : float
-            批量时间间隔 (ms)
+        spike_counts_E : array-like of 3 ints — E0/E1/E2 本批量脉冲计数
+        spike_count_I  : int — I 本批量脉冲计数
+        batch_dt       : float — 批量时间间隔 (ms)
         """
-        # AMPA 迹
-        self.sAMPA = self.sAMPA * math.exp(-batch_dt / self.tauAMPA) + spike_counts_E
-        # NMDA 门控变量
-        self.x_nmda = self.x_nmda * math.exp(-batch_dt / self.tau_x) + spike_counts_E
-        # NMDA 迹 (线性近似)
-        self.sNMDA = self.sNMDA * (1.0 - batch_dt / self.tauNMDA) + self.alpha * batch_dt * self.x_nmda
-        # GABA 迹
-        self.sGABA = self.sGABA * math.exp(-batch_dt / self.tauGABA) + spike_count_I
+        # AMPA 迹 (线性, 精确指数衰减 + 批内到达修正)
+        self.sAMPA_avg = (self.sAMPA_avg * math.exp(-batch_dt / self.tauAMPA)
+                          + self._spike_frac(batch_dt, self.tauAMPA)
+                          * np.asarray(spike_counts_E, dtype=np.float64) / self.N_E_sub)
+
+        # NMDA 门控变量 x (线性)
+        self.x_nmda_avg = (self.x_nmda_avg * math.exp(-batch_dt / self.tau_x)
+                           + self._spike_frac(batch_dt, self.tau_x)
+                           * np.asarray(spike_counts_E, dtype=np.float64) / self.N_E_sub)
+
+        # NMDA 迹 — 非线性饱和 (与原版 sim_code 一致), 逐神经元平均场
+        # batch_dt(0.4ms) << tauNMDA(100ms), Euler 单步足够精确
+        self.sNMDA_avg += (-self.sNMDA_avg / self.tauNMDA
+                           + self.alpha * self.x_nmda_avg * (1.0 - self.sNMDA_avg)) * batch_dt
+
+        # GABA 迹 (线性)
+        self.sGABA_avg = (self.sGABA_avg * math.exp(-batch_dt / self.tauGABA)
+                          + self._spike_frac(batch_dt, self.tauGABA)
+                          * spike_count_I / self.N_I)
 
     def compute_S(self, W):
         """
-        用 W 矩阵计算群体级加权和。
+        群体级加权和: S = W · (平均迹 × N_j), 与原版 S_* 定义一致。
 
-        Returns
-        -------
-        dict: {
-            "E0": {"S_AMPA": float, "S_NMDA": float, "S_GABA": float},
-            "E1": {...}, "E2": {...},
-            "I":  {"S_AMPA": float, "S_NMDA": float, "S_GABA": float},
-        }
+        Returns dict: 每个 area 的 {"S_AMPA","S_NMDA","S_GABA"}
         """
-        S_ampa = W.dot(self.sAMPA)  # shape (3,)
-        S_nmda = W.dot(self.sNMDA)  # shape (3,)
-        S_gaba = self.sGABA
+        S_ampa = W.dot(self.sAMPA_avg * self.N_E_sub)   # shape (3,)
+        S_nmda = W.dot(self.sNMDA_avg * self.N_E_sub)   # shape (3,)
+        S_gaba = self.sGABA_avg * self.N_I
 
         return {
             "E0": {"S_AMPA": S_ampa[0], "S_NMDA": S_nmda[0], "S_GABA": S_gaba},
             "E1": {"S_AMPA": S_ampa[1], "S_NMDA": S_nmda[1], "S_GABA": S_gaba},
             "E2": {"S_AMPA": S_ampa[2], "S_NMDA": S_nmda[2], "S_GABA": S_gaba},
-            # I 接收与非选择性 E0 相同的兴奋性输入
+            # I 接收与非选择性 E0 相同的兴奋性输入 (同原版)
             "I":  {"S_AMPA": S_ampa[0], "S_NMDA": S_nmda[0], "S_GABA": S_gaba},
         }
 
@@ -640,8 +658,11 @@ def main():
         processes.append(p)
 
     # ---- 主循环: 聚合脉冲计数, 计算 S_*, 广播 ----
-    traces = PopulationTraces(modelparams)
-    max_batches = int(duration / DT_MS / batch_steps) + 1
+    traces = PopulationTraces(modelparams, N0, N1, N2, modelparams["N_I"])
+    # 批数必须与 worker 严格一致: ceil(duration_steps / batch_steps)
+    # 注意: 原来的 +1 会让 master 多等一轮消息, worker 已退出循环导致永久死锁
+    duration_steps = int(round(duration / DT_MS))
+    max_batches = (duration_steps + batch_steps - 1) // batch_steps
     master_log = []
     batch_num = 0
 
@@ -653,8 +674,14 @@ def main():
 
         # 等待所有 worker 提交脉冲计数
         for _ in range(num_workers):
-            wid = done_queue.get()
-            msg = to_master_queues[wid].get()
+            try:
+                wid = done_queue.get(timeout=300)  # 5分钟无消息视为异常, 避免死锁
+                msg = to_master_queues[wid].get(timeout=60)
+            except Exception as e:
+                alive = [i for i, p in enumerate(processes) if p.is_alive()]
+                raise RuntimeError(
+                    f"master 在 batch {batch_num} 等待 worker 消息超时: {e}; "
+                    f"存活 worker: {alive}") from e
             per_worker_counts[msg["worker_id"]] = msg["spike_counts"]
 
         # 聚合各区域的脉冲计数
@@ -847,10 +874,10 @@ def save_and_plot(final_data, model_name, args, N0, N1, N2):
 def save_traces(traces, model_name):
     """保存最终迹值用于调试。"""
     with open(f"log/log_{model_name}/traces_final.txt", "w") as f:
-        f.write(f"sAMPA: {traces.sAMPA}\n")
-        f.write(f"x_nmda: {traces.x_nmda}\n")
-        f.write(f"sNMDA: {traces.sNMDA}\n")
-        f.write(f"sGABA: {traces.sGABA}\n")
+        f.write(f"sAMPA_avg: {traces.sAMPA_avg}\n")
+        f.write(f"x_nmda_avg: {traces.x_nmda_avg}\n")
+        f.write(f"sNMDA_avg: {traces.sNMDA_avg}\n")
+        f.write(f"sGABA_avg: {traces.sGABA_avg}\n")
 
 
 # ============================================================================

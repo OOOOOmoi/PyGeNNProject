@@ -1008,5 +1008,5 @@ if __name__ == "__main__":
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
         # save_spike(spike_data_temp, model_name)
-        visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
-                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+        # visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200, 
+        #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)

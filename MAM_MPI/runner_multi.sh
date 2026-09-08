@@ -1,6 +1,6 @@
 #!/bin/bash
 
-duration=10000
+duration=500
 AreaNum=32
 
 for scale in $(seq 1.4 0.1 2.0)

@@ -492,8 +492,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
         Ind_ = Ind[areaTar]
         for popTar, popSrc in product(pop_list, pop_list):
             if areaTar == areaSrc:
-                factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_[popTar][popSrc] > 0 else 1
-                # factor = 1.0
+                # factor = Ind_V1[popTar][popSrc] / Ind_[popTar][popSrc] if Ind_[popTar][popSrc] > 0 else 1
+                factor = 1.0
             else:
                 factor = float(args.scale) if "scale" in args else 1.0
             wAve = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 * factor
@@ -1008,5 +1008,5 @@ if __name__ == "__main__":
         spike_data_temp = {}
         spike_data_temp[area] = area_dict
         save_spike(spike_data_temp, model_name)
-        # visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200,
-        #         group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)
+        visualize("Test", spike_data_temp, duration=duration, drop=0, neurons_per_group=200,
+                group_spacing=20, NeuronNumber=NeuronNumber, vis_content=vis_content)

@@ -8,3 +8,4 @@ data_4.5T/
 *.tar.gz
 __pycache__/
 *.pyc
+.workbuddy/

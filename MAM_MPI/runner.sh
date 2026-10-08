@@ -1,5 +1,5 @@
 #!/bin/bash
-# MAM_MPI 32 区完整模型 — 500ms 仿真，使用空闲的 GPU 0/5/6
+# MAM_MPI 32 区完整模型 — 10000ms (10s) 仿真，使用 GPU 0/5/6
 # 保留 spike CSV 输出 (save_spike() 已取消注释)
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -17,7 +17,7 @@ cd "$(dirname "$0")"
 # 清空旧的 spike / volt / inSyn CSV 避免污染本次输出
 find /home/yangjinhao/PyGeNNProject/MAM_MPI/output -name "*.csv" -type f -delete
 
-ARGS="--duration 500"
+ARGS="--duration 10000"
 ARGS="$ARGS --AreaNum 32"
 ARGS="$ARGS --save-spike"          # 触发 CustomModel_MPI.py 末尾的 save_spike() 调用
 ARGS="$ARGS --gpu-ids 0 5 6"       # 仅使用空闲的 0/5/6 号 GPU

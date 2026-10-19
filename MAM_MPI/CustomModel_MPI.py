@@ -354,6 +354,8 @@ def get_parser():
                         help="Global multiplier for external Poisson input rate (default 1.0)")
     parser.add_argument("--syn-scale", type=float, default=1.0,
                         help="Global multiplier for intra/inter-area synaptic weights (default 1.0)")
+    parser.add_argument("--inh-scale", type=float, default=1.0,
+                        help="Multiplier for inhibitory (negative) synaptic weights only (default 1.0)")
     return parser
 
 def parse_all_args():
@@ -388,6 +390,8 @@ def getModelName(args):
         model_name += f"_ext{args.ext_scale}"
     if ("syn_scale" in args and float(args.syn_scale) != 1.0):
         model_name += f"_syn{args.syn_scale}"
+    if ("inh_scale" in args and float(args.inh_scale) != 1.0):
+        model_name += f"_inh{args.inh_scale}"
     if ("gpu_ids" in args):
         model_name += f"_GPU{len(args.gpu_ids)}"
     return model_name
@@ -508,6 +512,10 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             wAve = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 * factor
             syn_scale = float(args.syn_scale) if "syn_scale" in args else 1.0
             wAve = wAve * syn_scale
+            # 仅对抑制性(负)权重做额外缩放，用于调 E/I 平衡
+            inh_scale = float(args.inh_scale) if "inh_scale" in args else 1.0
+            if wAve < 0:
+                wAve = wAve * inh_scale
             wSd = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 / 10 * factor * syn_scale
             synNum = SN[areaTar][popTar][areaSrc][popSrc]
             tarName = areaTar+popTar

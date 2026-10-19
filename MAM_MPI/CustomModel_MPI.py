@@ -350,6 +350,10 @@ def get_parser():
     parser.add_argument("--save-spike", action="store_true", help="whether store spike")
     parser.add_argument("--gpu-ids", type=int, nargs="*", default=list(range(8)),
                         help="GPU IDs to use, e.g. --gpu-ids 0 2 3 4 5 6 7 (default: 0..7)")
+    parser.add_argument("--ext-scale", type=float, default=1.0,
+                        help="Global multiplier for external Poisson input rate (default 1.0)")
+    parser.add_argument("--syn-scale", type=float, default=1.0,
+                        help="Global multiplier for intra/inter-area synaptic weights (default 1.0)")
     return parser
 
 def parse_all_args():
@@ -380,6 +384,10 @@ def getModelName(args):
         model_name += f"_surface{args.surface}"
     if ("scale" in args):
         model_name += f"_scale{args.scale}"
+    if ("ext_scale" in args and float(args.ext_scale) != 1.0):
+        model_name += f"_ext{args.ext_scale}"
+    if ("syn_scale" in args and float(args.syn_scale) != 1.0):
+        model_name += f"_syn{args.syn_scale}"
     if ("gpu_ids" in args):
         model_name += f"_GPU{len(args.gpu_ids)}"
     return model_name
@@ -475,7 +483,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
                 )
 
                 ext_weight = weight[area][pop]['external']['external']
-                rate = SN[area][pop]['external']['external'] / NN[area][pop] / 3000
+                ext_scale = float(args.ext_scale) if "ext_scale" in args else 1.0
+                rate = SN[area][pop]['external']['external'] / NN[area][pop] / 3000 * ext_scale
                 # rate = rate_ext[pop]/1000
                 poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                 model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)
@@ -497,7 +506,9 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             else:
                 factor = float(args.scale) if "scale" in args else 1.0
             wAve = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 * factor
-            wSd = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 / 10 * factor
+            syn_scale = float(args.syn_scale) if "syn_scale" in args else 1.0
+            wAve = wAve * syn_scale
+            wSd = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 / 10 * factor * syn_scale
             synNum = SN[areaTar][popTar][areaSrc][popSrc]
             tarName = areaTar+popTar
             srcName = areaSrc+popSrc
@@ -562,7 +573,8 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     # 构建 spike_count_buffer 和 inSyn_buffer
     spike_count_buffer, weight_array, prob_array, src_pop_num_array, tar_neu_num_array, R_array  = \
         build_spike_buffer(area_num, NN, SN, delay_cc, weight, dt=model.dt, tar_area_list=area_list,
-                           all_area=all_area, pop_list=pop_list, gL=gL, scale_=float(args.scale) if "scale" in args else 1.0)
+                           all_area=all_area, pop_list=pop_list, gL=gL,
+                           scale_=(float(args.scale) if "scale" in args else 1.0) * (float(args.syn_scale) if "syn_scale" in args else 1.0))
 
     cum_src = np.cumsum(src_pop_num_array)  # cumulative counts
     inSyn_buffer = np.zeros(len(R_array), dtype=np.float32)

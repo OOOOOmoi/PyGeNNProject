@@ -26,3 +26,12 @@ for p in ['S23', 'S4', 'S5', 'S6']:
         if s[0] == 'E' and sn[p]['V1'][s] > 0:
             row.append(f"{s}:{sn[p]['V1'][s]/nn[p]:.0f}")
     print(f"  {p} 兴奋输入 <- {', '.join(row)}")
+
+print()
+print("=== S4 vs E4 接收的抑制性突触来源（每神经元）===")
+for p in ['S4', 'E4']:
+    row = []
+    for s in pops:
+        if s[0] in 'SPVH' and sn[p]['V1'][s] > 0:
+            row.append(f"{s}:{sn[p]['V1'][s]/nn[p]:.1f}")
+    print(f"  {p} 抑制输入 <- {', '.join(row)}")

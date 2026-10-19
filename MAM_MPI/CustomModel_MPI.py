@@ -356,6 +356,10 @@ def get_parser():
                         help="Global multiplier for intra/inter-area synaptic weights (default 1.0)")
     parser.add_argument("--inh-scale", type=float, default=1.0,
                         help="Multiplier for inhibitory (negative) synaptic weights only (default 1.0)")
+    parser.add_argument("--pv-scale", type=float, default=1.0,
+                        help="Multiplier for PV (P-type) inhibitory synapses only (default 1.0)")
+    parser.add_argument("--ss-scale", type=float, default=1.0,
+                        help="Multiplier for SST (S-type) self-connections S->S (default 1.0)")
     return parser
 
 def parse_all_args():
@@ -392,6 +396,10 @@ def getModelName(args):
         model_name += f"_syn{args.syn_scale}"
     if ("inh_scale" in args and float(args.inh_scale) != 1.0):
         model_name += f"_inh{args.inh_scale}"
+    if ("pv_scale" in args and float(args.pv_scale) != 1.0):
+        model_name += f"_pv{args.pv_scale}"
+    if ("ss_scale" in args and float(args.ss_scale) != 1.0):
+        model_name += f"_ss{args.ss_scale}"
     if ("gpu_ids" in args):
         model_name += f"_GPU{len(args.gpu_ids)}"
     return model_name
@@ -516,6 +524,14 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             inh_scale = float(args.inh_scale) if "inh_scale" in args else 1.0
             if wAve < 0:
                 wAve = wAve * inh_scale
+            # 针对性缩放：PV(P类型)抑制权重
+            pv_scale = float(args.pv_scale) if "pv_scale" in args else 1.0
+            if wAve < 0 and popSrc[0] == 'P':
+                wAve = wAve * pv_scale
+            # 针对性缩放：SST(S类型)自连接 S->S
+            ss_scale = float(args.ss_scale) if "ss_scale" in args else 1.0
+            if wAve < 0 and popSrc[0] == 'S' and popTar[0] == 'S':
+                wAve = wAve * ss_scale
             wSd = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 / 10 * factor * syn_scale
             synNum = SN[areaTar][popTar][areaSrc][popSrc]
             tarName = areaTar+popTar

@@ -162,6 +162,10 @@ def getWeightMap_full_type(structure):
     Cm = collection_params['single_neuron_dict']['Cm']
     gL = collection_params['single_neuron_dict']['gL']
     connection_params=collection_params['connection_params']
+    # 突触权重生理因子（对齐原版 Schmidt / Potjans & Diesmann 2014）
+    PSP_e = connection_params['PSP_e']          # 兴奋性皮层内突触 PSP (mV)
+    PSP_ext = connection_params['PSP_ext']      # 外部输入突触权重 (mV)
+    g = connection_params['g']                  # 抑制相对兴奋强度 (负值)
     PSC_over_PSP_ = nested_dict()
     for type_, value_ in Cm.items():
         C_m = Cm[type_]
@@ -178,27 +182,15 @@ def getWeightMap_full_type(structure):
                 type_ = tarPop
                 PSC_over_PSP = PSC_over_PSP_[type_]
                 if srcPop[0] == 'E':
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * PSP_e
                 if srcPop[0] == 'H':
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * -1
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * g * PSP_e
                 if srcPop[0] == 'P':
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * -1
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * g * PSP_e
                 if srcPop[0] == "S":
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * -1
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * g * PSP_e
                 if srcPop[0] == "V":
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * -1
-                # if tarPop == 'S4' and srcPop == 'E4' and tarArea == srcArea:
-                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 0.98
-                # if tarPop == 'V4' and srcPop == 'S4' and tarArea == srcArea:
-                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 0.95
-                # if tarPop == 'V4' and srcPop == 'V4':
-                #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 2
-                if tarPop =='S23' and srcPop == tarPop:
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 10
-                if tarPop =='S4' and srcPop == tarPop:
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 7
-                if tarPop =='S5' and srcPop == tarPop:
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 12
+                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * g * PSP_e
                 SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] = abs(SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop]) * connection_params['PSC_rel_sd_normal']
                 # if tarPop == 'E23' and srcPop == 'E4':
                 #     SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['PSP_e_23_4'] / 4
@@ -210,7 +202,7 @@ def getWeightMap_full_type(structure):
                     else:
                         SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= connection_params['cc_weights_I_factor']
                         SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] *= connection_params['cc_weights_I_factor']
-                SynapsesWeightMean[tarArea][tarPop]['external']['external'] = PSC_over_PSP_[type_]
+                SynapsesWeightMean[tarArea][tarPop]['external']['external'] = PSC_over_PSP_[type_] * PSP_ext
     return SynapsesWeightMean.to_dict(), SynapsesWeightSd.to_dict()
 
 def getDelayMap(structure, Dist):

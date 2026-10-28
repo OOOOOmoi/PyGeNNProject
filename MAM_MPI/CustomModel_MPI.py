@@ -320,7 +320,9 @@ def get_neu_vars_array(neuron_populations, spike_count_buffer, merge=True):
 # 准备函数，加载参数文件并生成所需的各种映射
 # ===============================================================
 def prepare(args):
-    if "surface" in args:
+    if getattr(args, "data_json", None):
+        DataPath = os.path.join(parent_dir, args.data_json)
+    elif "surface" in args:
         DataPath=os.path.join(parent_dir, f"model_info_schmidt_motif_diff_s/default_Data_Model__{int(args.surface)}mm2.json")
     else:
         DataPath=os.path.join(parent_dir, f"model_info_schmidt_motif_diff_s/custom_Data_Model_3396.json")
@@ -350,8 +352,14 @@ def get_parser():
     parser.add_argument("--save-spike", action="store_true", help="whether store spike")
     parser.add_argument("--gpu-ids", type=int, nargs="*", default=list(range(8)),
                         help="GPU IDs to use, e.g. --gpu-ids 0 2 3 4 5 6 7 (default: 0..7)")
+    parser.add_argument("--data-json", type=str, default=None,
+                        help="Explicit path to a Data_Model json (relative to project root), overrides --surface")
     parser.add_argument("--ext-scale", type=float, default=1.0,
                         help="Global multiplier for external Poisson input rate (default 1.0)")
+    parser.add_argument("--vip-ext-scale", type=float, default=1.0,
+                        help="Multiplier for external Poisson input rate of VIP (V-type) populations only (default 1.0)")
+    parser.add_argument("--sst-ext-scale", type=float, default=1.0,
+                        help="Multiplier for external Poisson input rate of SST (S-type) populations only (default 1.0)")
     parser.add_argument("--syn-scale", type=float, default=1.0,
                         help="Global multiplier for intra/inter-area synaptic weights (default 1.0)")
     parser.add_argument("--inh-scale", type=float, default=1.0,
@@ -392,6 +400,10 @@ def getModelName(args):
         model_name += f"_scale{args.scale}"
     if ("ext_scale" in args and float(args.ext_scale) != 1.0):
         model_name += f"_ext{args.ext_scale}"
+    if ("vip_ext_scale" in args and float(args.vip_ext_scale) != 1.0):
+        model_name += f"_vipext{args.vip_ext_scale}"
+    if ("sst_ext_scale" in args and float(args.sst_ext_scale) != 1.0):
+        model_name += f"_sstext{args.sst_ext_scale}"
     if ("syn_scale" in args and float(args.syn_scale) != 1.0):
         model_name += f"_syn{args.syn_scale}"
     if ("inh_scale" in args and float(args.inh_scale) != 1.0):
@@ -400,6 +412,8 @@ def getModelName(args):
         model_name += f"_pv{args.pv_scale}"
     if ("ss_scale" in args and float(args.ss_scale) != 1.0):
         model_name += f"_ss{args.ss_scale}"
+    if (getattr(args, "data_json", None)):
+        model_name += "_balancedjson"
     if ("gpu_ids" in args):
         model_name += f"_GPU{len(args.gpu_ids)}"
     return model_name
@@ -496,7 +510,16 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
 
                 ext_weight = weight[area][pop]['external']['external']
                 ext_scale = float(args.ext_scale) if "ext_scale" in args else 1.0
-                rate = SN[area][pop]['external']['external'] / NN[area][pop] / 3000 * ext_scale
+                # 对 VIP (V 型, 前缀 'V') / SST (S 型, 前缀 'S') 群体额外应用对应缩放
+                vip_ext_scale = float(args.vip_ext_scale) if "vip_ext_scale" in args else 1.0
+                sst_ext_scale = float(args.sst_ext_scale) if "sst_ext_scale" in args else 1.0
+                type_scale = 1.0
+                if pop.startswith('V'):
+                    type_scale = vip_ext_scale
+                elif pop.startswith('S'):
+                    type_scale = sst_ext_scale
+                eff_scale = ext_scale * type_scale
+                rate = SN[area][pop]["external"]["external"] / NN[area][pop] * eff_scale
                 # rate = rate_ext[pop]/1000
                 poisson_params = {"weight": ext_weight, "tauSyn": 0.5, "rate": rate}
                 model.add_current_source(area + pop + "_poisson", "PoissonExp", neuron_pop, poisson_params, poisson_init)

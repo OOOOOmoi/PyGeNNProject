@@ -15,10 +15,9 @@ import pickle
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from nested_dict import nested_dict
-from config import collection_params, vis_content, record_I
-from getStruct import getWeightMap, getDelayMap, get_struct, has_key_path, getWeightMap_full_type, getInd
-from visual import visualize, generate_unique_suffix
-from connectom import connectom
+from config import collection_params, vis_content
+from getStruct import getDelayMap, get_struct, has_key_path, getWeightMap_full_type, getInd
+from visual import visualize
 from record import record_spike, save_spike, record_inSyn, save_inSyn, save_volt, save_cc_inSyn, archive_and_clear
 from multiprocessing import Process, Queue, Pipe
 from numba import njit, prange, cuda, int32, float32
@@ -439,7 +438,8 @@ def getModelName(args):
 def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, Ind, model_name, args,
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
-    model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
+    # 编译目录加入 model_name，使同卡多进程各自独立，避免并发撞目录
+    model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}_{model_name}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
     if isinstance(area_list, str):
         area_list = [area_list]
     model.dt = 0.1                                                        # 设置时间步长为 0.1 ms
@@ -476,6 +476,9 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     total_neurons = 0
     neuron_populations = defaultdict(dict)
     poisson_init = {"current": 0.0}
+    # 预热策略：初始膜电位 V 设为 Normal(mean=-150, sd=50)，远低于阈值(Vth≈-37~-56mV)。
+    # 目的是让神经元在外部输入驱动下从超极化缓慢爬升到静息态附近，跳过开头的爆发式瞬态，
+    # 使后续统计的放电率直接落在稳态，无需再手动删除模拟初期数据。
     lif_init = {"V": init_var("Normal", {"mean": -150.0, "sd": 50.0}), "RefracTime": params['TauRefrac']}
     Cm = collection_params['single_neuron_dict']['Cm']
     gL = collection_params['single_neuron_dict']['gL']

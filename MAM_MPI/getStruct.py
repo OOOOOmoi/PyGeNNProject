@@ -113,51 +113,6 @@ def get_weight_factor():
                         (tau_m / tau_syn) ** (- tau_syn / (tau_m - tau_syn)))) ** (-1))
     return PSC_over_PSP
 
-def getWeightMap(structure, args):
-    PSC_over_PSP_= get_weight_factor()
-    SynapsesWeightMean=nested_dict()
-    SynapsesWeightSd=nested_dict()
-    connection_params=collection_params['connection_params']
-    alpha_norm = connection_params['alpha_norm']
-    beta_norm = connection_params['beta_norm']
-    specific_scale_syn = load_scale_dict_from_excel()
-    if "free_scale_syn" in args:
-        specific_scale_syn ['V5']['E5'] += float(args.free_scale_syn)
-    for tarArea, tarList in structure.items():
-        for srcArea, srcList in structure.items():
-            for tarPop, srcPop in product(tarList, srcList):
-                type_ = srcPop[0]
-                PSC_over_PSP = PSC_over_PSP_[type_]
-                if tarArea == srcArea:
-                    if srcPop[0] == 'E':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * alpha_norm[srcPop] * connection_params['PSP_e']
-                    if srcPop[0] == 'H':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['g_H'] * alpha_norm[srcPop] * connection_params['PSP_e']
-                    if srcPop[0] == 'P':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['g_P'] * alpha_norm[srcPop] * connection_params['PSP_e']
-                    if srcPop[0] == "S":
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['g_S'] * alpha_norm[srcPop] * connection_params['PSP_e']
-                    if srcPop[0] == "V":
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['g_V'] * alpha_norm[srcPop] * connection_params['PSP_e']
-                    if tarPop == "H1" and srcPop[0] != "E":
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= 0.5
-                    SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] = abs(SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop]) * connection_params['PSC_rel_sd_normal']
-                    if tarPop == 'E23' and srcPop == 'E4':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['PSP_e_23_4'] / 4
-                        SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] = PSC_over_PSP * connection_params['PSP_e_23_4'] * connection_params['PSC_rel_sd_normal']
-                else:
-                    if tarPop[0] == 'E':
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= connection_params['cc_weights_factor']
-                        SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] *= connection_params['cc_weights_factor']
-                    else:
-                        SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= connection_params['cc_weights_I_factor']
-                        SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] *= connection_params['cc_weights_I_factor']
-                if has_key_path(specific_scale_syn, tarPop, srcPop):
-                    SynapsesWeightMean[tarArea][tarPop][srcArea][srcPop] *= specific_scale_syn[tarPop][srcPop]
-                    SynapsesWeightSd[tarArea][tarPop][srcArea][srcPop] *= specific_scale_syn[tarPop][srcPop]
-                SynapsesWeightMean[tarArea][tarPop]['external']['external'] = connection_params['PSP_ext'] * PSC_over_PSP_['E']
-    return SynapsesWeightMean.to_dict(), SynapsesWeightSd.to_dict()
-
 def getWeightMap_full_type(structure):
     Cm = collection_params['single_neuron_dict']['Cm']
     gL = collection_params['single_neuron_dict']['gL']

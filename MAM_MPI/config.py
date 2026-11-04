@@ -1,7 +1,6 @@
 vis_content = ['area-psd']
 model_content = {
     "V1": [],
-    "V1": [],
     "V2": [],
     "VP": [],
     "V3": [],
@@ -43,10 +42,6 @@ stim = {
     'V1': {
         'E23': 500.,
     }
-}
-
-record_I = {
-    'V1': ["E4", "S4", "P4", "V4"],
 }
 
 connection_params = {
@@ -96,8 +91,6 @@ connection_params = {
     # factor to scale cortico-cortical inh. weights in relation
     # to exc. weights (chi_I)
     'cc_weights_I_factor': 0.8,
-
-    'rate_ext': 10.,
 }
 
 single_neuron_dict = {

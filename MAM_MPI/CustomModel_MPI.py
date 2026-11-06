@@ -367,6 +367,8 @@ def get_parser():
                         help="Multiplier for PV (P-type) inhibitory synapses only (default 1.0)")
     parser.add_argument("--ss-scale", type=float, default=1.0,
                         help="Multiplier for SST (S-type) self-connections S->S (default 1.0)")
+    parser.add_argument("--vip-gl-scale", type=float, default=1.0,
+                        help="Multiplier for leak conductance gL of VIP (V-type) populations only, to flatten f-I gain (default 1.0)")
     return parser
 
 def parse_all_args():
@@ -388,6 +390,20 @@ def parse_all_args():
     args_dict = vars(args)
     args_dict.update(extra_args)
     return Namespace(**args_dict)
+
+def getCompileName(args):
+    # 编译目录名只依赖真正影响 CUDA 代码结构（拓扑/模型）的参数，
+    # 运行时缩放参数(ext/vipext/sstext/syn/inh/pv/ss/vipgl)只改 var 数值，不改变结构，
+    # 不应进入编译目录名，否则参数扫描会重复编译相同模型。
+    name = f"{args.duration/1000.0:.1f}s"
+    if ("AreaNum" in args):
+        name += f"_AreaNum{args.AreaNum}"
+    if ("surface" in args):
+        name += f"_surface{args.surface}"
+    if (getattr(args, "data_json", None)):
+        name += "_balancedjson"
+    return name
+
 
 def getModelName(args):
     model_name = f"{args.duration/1000.0:.1f}s"
@@ -411,6 +427,8 @@ def getModelName(args):
         model_name += f"_pv{args.pv_scale}"
     if ("ss_scale" in args and float(args.ss_scale) != 1.0):
         model_name += f"_ss{args.ss_scale}"
+    if ("vip_gl_scale" in args and float(args.vip_gl_scale) != 1.0):
+        model_name += f"_vipgl{args.vip_gl_scale}"
     if (getattr(args, "data_json", None)):
         model_name += "_balancedjson"
     if ("gpu_ids" in args):
@@ -438,8 +456,10 @@ def getModelName(args):
 def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, delay_cc, area_num, Ind, model_name, args,
          to_master: Queue, from_master: Queue, done_queue: Queue, final_queue: Queue):
     print(f"start proccess {worker_id} on GPU {gpu_id}")
-    # 编译目录加入 model_name，使同卡多进程各自独立，避免并发撞目录
-    model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}_{model_name}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
+    # 编译目录只依赖结构参数(getCompileName)，运行时缩放参数(ext/vipext/sstext/vipgl等)复用同一编译结果，
+    # 避免参数扫描时对相同模型重复编译。worker_id 后缀用于区分同卡多进程(不同 worker)。
+    compile_name = getCompileName(args)
+    model = GeNNModel("float", f"GenCODE/worker{worker_id}_on_device{gpu_id}_{compile_name}", device_select_method=DeviceSelect.MANUAL, manual_device_id=gpu_id)
     if isinstance(area_list, str):
         area_list = [area_list]
     model.dt = 0.1                                                        # 设置时间步长为 0.1 ms
@@ -489,13 +509,19 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
     Ind_V1 = Ind['V1']
     neuron_group = 0
     # 创建神经元群体
+    vip_gl_scale = float(args.vip_gl_scale) if "vip_gl_scale" in args else 1.0
     for area in area_list:
         for pop in pop_list:
             popName = area+pop
             params["C"] = Cm[pop] / 1000.0
-            params["TauM"] = Cm[pop] / gL[pop]
+            # 对 VIP (V 型) 群体放大 gL，降低膜电阻 R_m 与 f-I 增益，用于检验高增益是否放大双稳态
+            eff_gL = gL[pop] * (vip_gl_scale if pop.startswith('V') else 1.0)
+            params["TauM"] = Cm[pop] / eff_gL
             params["Vrest"] = Vrest[pop]
-            params["Vreset"] = Vrest[pop] - 10.0
+            # 复位回到静息电位（对齐 Schmidt 2018 / Potjans-Diesmann 2014）。
+            # LIF 中 Vrest 是唯一平衡点，Vreset 不应是比静息更负的恒定值；
+            # 真实 AHP 是输入依赖的动态过程，不应靠压低 Vreset 近似。
+            params["Vreset"] = Vrest[pop]
             params["Vthresh"] = Vth[pop]
             params["TauRefrac"] = tref[pop]
             pop_size = NeuronNumber[area][pop]

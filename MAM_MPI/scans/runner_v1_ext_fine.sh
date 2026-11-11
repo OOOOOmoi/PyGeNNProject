@@ -11,7 +11,7 @@ export CUDA_HOME=/home/yangjinhao/CUDA/cuda-12.0
 export PATH=/home/yangjinhao/CUDA/cuda-12.0/bin:$PATH
 export LD_LIBRARY_PATH=/home/yangjinhao/CUDA/cuda-12.0/lib64:${LD_LIBRARY_PATH:-}
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 DURATION=500
 GPUS=(0 1 2 3 4 5 6 7 8 9)   # 当前空闲卡

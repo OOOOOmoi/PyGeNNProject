@@ -3,7 +3,7 @@
 """分析 V1 各群体接收的兴奋/抑制突触数、连接度，诊断 S/P 群体放电率异常原因。"""
 import json
 
-data = json.load(open('../model_info_schmidt_motif_diff_s/custom_Data_Model_3396.json'))
+data = json.load(open('../../model_info_schmidt_motif_diff_s/custom_Data_Model_3396.json'))
 sn = data['synapses']['V1']
 nn = data['neuron_numbers']['V1']
 pops = data['population_list']

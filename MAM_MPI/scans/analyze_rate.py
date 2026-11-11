@@ -29,7 +29,7 @@ def main():
     spike_dir = sys.argv[1]
     dur_s = float(sys.argv[2])
     data_json = sys.argv[3] if len(sys.argv) > 3 else \
-        '../model_info_schmidt_motif_diff_s/custom_Data_Model_3396.json'
+        '../../model_info_schmidt_motif_diff_s/custom_Data_Model_3396.json'
     rates, wmean, total_spikes, Ntot, pops = analyze(spike_dir, dur_s, data_json)
     print(f"pop      rate(Hz)   N_total")
     for p in pops:

@@ -7,7 +7,7 @@ export CUDA_HOME=/home/yangjinhao/CUDA/cuda-12.0
 export PATH=/home/yangjinhao/CUDA/cuda-12.0/bin:$PATH
 export LD_LIBRARY_PATH=/home/yangjinhao/CUDA/cuda-12.0/lib64:${LD_LIBRARY_PATH:-}
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 DURATION=${1:-500}
 ARGS="--duration $DURATION --AreaNum 1 --save-spike --gpu-ids 0"
 ARGS="$ARGS --data-json model_info_schmidt_motif_diff_s/default_Data_Model__balanced_1.0mm2.json"

@@ -9,7 +9,7 @@ export CUDA_HOME=/home/yangjinhao/CUDA/cuda-12.0
 export PATH=/home/yangjinhao/CUDA/cuda-12.0/bin:$PATH
 export LD_LIBRARY_PATH=/home/yangjinhao/CUDA/cuda-12.0/lib64:${LD_LIBRARY_PATH:-}
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 DURATION=500
 EXT_SCALE=0.02          # 固定外部输入：V 层 ~90 Hz，明显爆发但未失控

@@ -1,7 +1,6 @@
 #!/bin/bash
-# V1 单区 二维联合扫描：vipext × sst-ext-scale
-# 目标：在相变点附近寻找 V4/S4 同时回到正常水平的参数组合
-# 固定 ext-scale=0.02
+# V1 单区 VIP × SST 外部输入二维网格扫描（系统化）
+# 固定 ext-scale=0.02，vipext × sstext 完整网格
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate pygenn52
 export CUDA_PATH=/home/yangjinhao/CUDA/cuda-12.0
@@ -9,17 +8,16 @@ export CUDA_HOME=/home/yangjinhao/CUDA/cuda-12.0
 export PATH=/home/yangjinhao/CUDA/cuda-12.0/bin:$PATH
 export LD_LIBRARY_PATH=/home/yangjinhao/CUDA/cuda-12.0/lib64:${LD_LIBRARY_PATH:-}
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 DURATION=500
 EXT_SCALE=0.02
-VIP_LIST="0.30 0.35 0.40 0.45"
-SST_LIST="0.3 0.5 0.7 1.0"
+VIP_LIST="0.05 0.1 0.2 0.3 0.5 0.7 1.0"
+SST_LIST="0.05 0.1 0.2 0.3 0.5 0.7 1.0"
 GPUS=(0 1 2 3 4 5 6 7 8 9)
 
 mkdir -p log
 
-# 生成所有 (vip, sst) 组合
 COMBOS=()
 for v in $VIP_LIST; do
     for s in $SST_LIST; do
@@ -47,4 +45,4 @@ for combo in "${COMBOS[@]}"; do
     fi
 done
 wait
-echo "全部 ${N} 个二维组合任务完成"
+echo "全部 ${N} 个二维网格任务完成"

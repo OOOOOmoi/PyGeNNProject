@@ -369,6 +369,10 @@ def get_parser():
                         help="Multiplier for SST (S-type) self-connections S->S (default 1.0)")
     parser.add_argument("--vip-gl-scale", type=float, default=1.0,
                         help="Multiplier for leak conductance gL of VIP (V-type) populations only, to flatten f-I gain (default 1.0)")
+    parser.add_argument("--sst2vip-scale", type=float, default=1.0,
+                        help="Multiplier for SST->VIP inhibitory synapses in layer 4 only (S4->V4, default 1.0)")
+    parser.add_argument("--vip2sst-scale", type=float, default=1.0,
+                        help="Multiplier for VIP->SST inhibitory synapses in layer 4 only (V4->S4, default 1.0)")
     return parser
 
 def parse_all_args():
@@ -429,6 +433,10 @@ def getModelName(args):
         model_name += f"_ss{args.ss_scale}"
     if ("vip_gl_scale" in args and float(args.vip_gl_scale) != 1.0):
         model_name += f"_vipgl{args.vip_gl_scale}"
+    if ("sst2vip_scale" in args and float(args.sst2vip_scale) != 1.0):
+        model_name += f"_s2v{args.sst2vip_scale}"
+    if ("vip2sst_scale" in args and float(args.vip2sst_scale) != 1.0):
+        model_name += f"_v2s{args.vip2sst_scale}"
     if (getattr(args, "data_json", None)):
         model_name += "_balancedjson"
     if ("gpu_ids" in args):
@@ -584,6 +592,15 @@ def Part(worker_id, gpu_id,  area_list, all_area, pop_list, NN, SN, weight, dela
             ss_scale = float(args.ss_scale) if "ss_scale" in args else 1.0
             if wAve < 0 and popSrc[0] == 'S' and popTar[0] == 'S':
                 wAve = wAve * ss_scale
+            # 针对性缩放：第四层 SST<->VIP 互抑（仅 layer 4，即 S4/V4 后缀 '4'）
+            # 用于二维联合扫描 SST->VIP 与 VIP->SST 权重，定位 winner-take-all 相变来源
+            sst2vip_scale = float(args.sst2vip_scale) if "sst2vip_scale" in args else 1.0
+            vip2sst_scale = float(args.vip2sst_scale) if "vip2sst_scale" in args else 1.0
+            if wAve < 0 and popSrc.endswith('4') and popTar.endswith('4'):
+                if popSrc[0] == 'S' and popTar[0] == 'V':
+                    wAve = wAve * sst2vip_scale
+                elif popSrc[0] == 'V' and popTar[0] == 'S':
+                    wAve = wAve * vip2sst_scale
             wSd = weight[areaTar][popTar][areaSrc][popSrc] / 1000.0 / 10 * factor * syn_scale
             synNum = SN[areaTar][popTar][areaSrc][popSrc]
             tarName = areaTar+popTar
